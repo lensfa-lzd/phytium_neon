@@ -51,7 +51,7 @@ typedef struct NormalizedBBox_ {
 } NormalizedBBox;
 
 
-void *myAlloc(size_t size) {
+void *NeonACC::myAlloc(size_t size) {
     char *ptr, *ptr0;
     ptr0 = (char *) malloc(
             (size_t) (size + _MALLOC_ALIGN * ((size >= 4096) + 1L) + sizeof(char *)));
@@ -66,7 +66,7 @@ void *myAlloc(size_t size) {
     return ptr;
 }
 
-void myFree_(void *ptr) {
+void NeonACC::myFree_(void *ptr) {
     // Pointer must be aligned by _MALLOC_ALIGN
     if (ptr) {
         if (((size_t) ptr & (_MALLOC_ALIGN - 1)) != 0)
