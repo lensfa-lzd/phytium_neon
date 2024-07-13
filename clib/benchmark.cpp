@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <opencv2/opencv.hpp>
 #include "facedetectcnn.h"
+#include "facedetectcnn_neon.h"
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -15,6 +16,47 @@ using namespace std;
 #define DETECT_BUFFER_SIZE 0x20000
 using namespace cv;
 
+
+void benchmark(Mat image, int total_count,
+               int *benchFunction(unsigned char *result_buffer, unsigned char *rgb_image_data, int width, int height,
+                                  int step)) {
+    int num_thread = 1;
+    int *pResults = NULL;
+    unsigned char *pBuffers[1024];//large enough
+
+    //pBuffer is used in the detection functions.
+    //If you call functions in multiple threads, please create one buffer for each thread!
+    unsigned char *p = (unsigned char *) malloc(DETECT_BUFFER_SIZE * num_thread);
+    if (!p) {
+        fprintf(stderr, "Can not alloc buffer.\n");
+        return;
+    }
+
+    for (int i = 0; i < num_thread; i++) {
+        pBuffers[i] = p + (DETECT_BUFFER_SIZE) * i;
+    }
+
+
+    pResults = benchFunction(pBuffers[0], image.ptr<unsigned char>(0), (int) image.cols, (int) image.rows,
+                             (int) image.step);
+
+    TickMeter tm;
+    tm.start();
+
+    for (int i = 0; i < total_count; i++) {
+        int idx = 0;
+        pResults = facedetect_cnn(pBuffers[idx], image.ptr<unsigned char>(0), (int) image.cols, (int) image.rows,
+                                  (int) image.step);
+    }
+    tm.stop();
+    double t = tm.getTimeMilli();
+    t /= total_count;
+    printf("cnn facedetection average time = %.2fms | %.2f FPS\n", t, 1000.0 / t);
+
+    //release the buffer
+    free(p);
+}
+
 int main(int argc, char *argv[]) {
     // argc: 表示参数个数，包括程序名本身(argv[0])。 在这个例子中， argc 的值是 4。
     // argv: 是一个 char* 类型的数组，存储了各个参数字符串。
@@ -23,11 +65,6 @@ int main(int argc, char *argv[]) {
         printf("Usage: %s <image_file_name> <repeat_count>\n", argv[0]);
         return -1;
     }
-#if defined(_ENABLE_NEON)
-    printf("NEON ENABLE.\n");
-#else
-    printf("NEON NOT ENABLE.\n");
-#endif
     // 重复的图像处理次数
     int total_count;
     if (argc == 2) {
@@ -44,54 +81,15 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
-#ifdef _OPENMP
-    int num_thread = omp_get_num_procs();
-    omp_set_num_threads(num_thread);
-    printf("There are %d threads, %d processors.\n", num_thread, omp_get_num_procs());
-#else
     int num_thread = 1;
     printf("There is %d thread.\n", num_thread);
-#endif
 
-    int *pResults = NULL;
-    unsigned char *pBuffers[1024];//large enough
-
-    //pBuffer is used in the detection functions.
-    //If you call functions in multiple threads, please create one buffer for each thread!
-    unsigned char *p = (unsigned char *) malloc(DETECT_BUFFER_SIZE * num_thread);
-    if (!p) {
-        fprintf(stderr, "Can not alloc buffer.\n");
-        return -1;
-    }
-
-    for (int i = 0; i < num_thread; i++)
-        pBuffers[i] = p + (DETECT_BUFFER_SIZE) * i;
-
-
-    pResults = facedetect_cnn(pBuffers[0], image.ptr<unsigned char>(0), (int) image.cols, (int) image.rows,
-                              (int) image.step);
-
-    TickMeter tm;
-    tm.start();
-#ifdef _OPENMP
-#pragma omp parallel for
-#endif
-    for (int i = 0; i < total_count; i++) {
-#ifdef _OPENMP
-        int idx = omp_get_thread_num();
-#else
-        int idx = 0;
-#endif
-        pResults = facedetect_cnn(pBuffers[idx], image.ptr<unsigned char>(0), (int) image.cols, (int) image.rows,
-                                  (int) image.step);
-    }
-    tm.stop();
-    double t = tm.getTimeMilli();
-    t /= total_count;
-    printf("cnn facedetection average time = %.2fms | %.2f FPS\n", t, 1000.0 / t);
-
-    //release the buffer
-    free(p);
+    printf("Benchmarking...\n");
+    printf("facedetect_cnn\n");
+    benchmark(image, total_count, facedetect_cnn);
+    printf("----\n");
+    printf("facedetect_cnn_neon\n");
+    benchmark(image, total_count, NeonAcc::facedetect_cnn);
 
     return 0;
 }

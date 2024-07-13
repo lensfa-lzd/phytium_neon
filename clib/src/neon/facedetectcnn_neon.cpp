@@ -36,10 +36,11 @@ or tort (including negligence or otherwise) arising in any way out of
 the use of this software, even if advised of the possibility of such damage.
 */
 
-#include "facedetectcnn.h"
+#include "facedetectcnn_neon.h"
 #include <cmath>
 #include <float.h> //for FLT_EPSION
 #include <algorithm>//for stable_sort, sort
+
 
 typedef struct NormalizedBBox_ {
     float xmin;
@@ -91,9 +92,6 @@ setDataFrom3x3S2P1to1x1S1P0FromImage(const unsigned char *inputData, int imgWidt
     int channels = 32;
     CDataBlob<float> outBlob(rows, cols, channels);
 
-#if defined(_OPENMP)
-#pragma omp parallel for
-#endif
     for (int r = 0; r < rows; r++) {
         for (int c = 0; c < cols; c++) {
             float *pData = outBlob.ptr(r, c);
@@ -125,35 +123,11 @@ setDataFrom3x3S2P1to1x1S1P0FromImage(const unsigned char *inputData, int imgWidt
 //p1 and p2 must be 512-bit aligned (16 float numbers)
 inline float dotProduct(const float *p1, const float *p2, int num) {
     float sum = 0.f;
-
-#if defined(_ENABLE_AVX512)
-    __m512 a_float_x16, b_float_x16;
-    __m512 sum_float_x16 = _mm512_setzero_ps();
-    for (int i = 0; i < num; i += 16)
-    {
-        a_float_x16 = _mm512_load_ps(p1 + i);
-        b_float_x16 = _mm512_load_ps(p2 + i);
-        sum_float_x16 = _mm512_add_ps(sum_float_x16, _mm512_mul_ps(a_float_x16, b_float_x16));
-    }
-   sum = _mm512_reduce_add_ps(sum_float_x16);
-#elif defined(_ENABLE_AVX2)
-    __m256 a_float_x8, b_float_x8;
-    __m256 sum_float_x8 = _mm256_setzero_ps();
-    for (int i = 0; i < num; i += 8)
-    {
-        a_float_x8 = _mm256_load_ps(p1 + i);
-        b_float_x8 = _mm256_load_ps(p2 + i);
-        sum_float_x8 = _mm256_add_ps(sum_float_x8, _mm256_mul_ps(a_float_x8, b_float_x8));
-    }
-   sum_float_x8 = _mm256_hadd_ps(sum_float_x8, sum_float_x8);
-   sum_float_x8 = _mm256_hadd_ps(sum_float_x8, sum_float_x8);
-   sum = ((float*)&sum_float_x8)[0] + ((float*)&sum_float_x8)[4];
-#elif defined(_ENABLE_NEON)
+    // NEON ACC
     float32x4_t a_float_x4, b_float_x4;
     float32x4_t sum_float_x4;
     sum_float_x4 = vdupq_n_f32(0);
-    for (int i = 0; i < num; i+=4)
-    {
+    for (int i = 0; i < num; i += 4) {
         a_float_x4 = vld1q_f32(p1 + i);
         b_float_x4 = vld1q_f32(p2 + i);
         sum_float_x4 = vaddq_f32(sum_float_x4, vmulq_f32(a_float_x4, b_float_x4));
@@ -162,110 +136,36 @@ inline float dotProduct(const float *p1, const float *p2, int num) {
     sum += vgetq_lane_f32(sum_float_x4, 1);
     sum += vgetq_lane_f32(sum_float_x4, 2);
     sum += vgetq_lane_f32(sum_float_x4, 3);
-#else
-    for (int i = 0; i < num; i++) {
-        sum += (p1[i] * p2[i]);
-    }
-#endif
-
     return sum;
 }
 
 inline bool vecMulAdd(const float *p1, const float *p2, float *p3, int num) {
-#if defined(_ENABLE_AVX512)
-    __m512 a_float_x16, b_float_x16, c_float_x16;
-    for (int i = 0; i < num; i += 16)
-    {
-        a_float_x16 = _mm512_load_ps(p1 + i);
-        b_float_x16 = _mm512_load_ps(p2 + i);
-        c_float_x16 = _mm512_load_ps(p3 + i);
-        c_float_x16 = _mm512_add_ps(c_float_x16, _mm512_mul_ps(a_float_x16, b_float_x16));
-        _mm512_store_ps(p3 + i, c_float_x16);
-    }
-#elif defined(_ENABLE_AVX2)
-    __m256 a_float_x8, b_float_x8, c_float_x8;
-    for (int i = 0; i < num; i += 8)
-    {
-        a_float_x8 = _mm256_load_ps(p1 + i);
-        b_float_x8 = _mm256_load_ps(p2 + i);
-        c_float_x8 = _mm256_load_ps(p3 + i);
-        c_float_x8 = _mm256_add_ps(c_float_x8, _mm256_mul_ps(a_float_x8, b_float_x8));
-        _mm256_store_ps(p3 + i, c_float_x8);
-    }
-#elif defined(_ENABLE_NEON)
+    // NEON ACC
     float32x4_t a_float_x4, b_float_x4, c_float_x4;
-    for (int i = 0; i < num; i+=4)
-    {
+    for (int i = 0; i < num; i += 4) {
         a_float_x4 = vld1q_f32(p1 + i);
         b_float_x4 = vld1q_f32(p2 + i);
         c_float_x4 = vld1q_f32(p3 + i);
         c_float_x4 = vaddq_f32(c_float_x4, vmulq_f32(a_float_x4, b_float_x4));
         vst1q_f32(p3 + i, c_float_x4);
     }
-#else
-    for (int i = 0; i < num; i++)
-        p3[i] += (p1[i] * p2[i]);
-#endif
-
     return true;
 }
 
 inline bool vecAdd(const float *p1, float *p2, int num) {
-#if defined(_ENABLE_AVX512)
-    __m512 a_float_x16, b_float_x16;
-    for (int i = 0; i < num; i += 16)
-    {
-        a_float_x16 = _mm512_load_ps(p1 + i);
-        b_float_x16 = _mm512_load_ps(p2 + i);
-        b_float_x16 = _mm512_add_ps(a_float_x16, b_float_x16);
-        _mm512_store_ps(p2 + i, b_float_x16);
-    }
-#elif defined(_ENABLE_AVX2)
-    __m256 a_float_x8, b_float_x8;
-    for (int i = 0; i < num; i += 8)
-    {
-        a_float_x8 = _mm256_load_ps(p1 + i);
-        b_float_x8 = _mm256_load_ps(p2 + i);
-        b_float_x8 = _mm256_add_ps(a_float_x8, b_float_x8);
-        _mm256_store_ps(p2 + i, b_float_x8);
-    }
-#elif defined(_ENABLE_NEON)
+    // NEON ACC
     float32x4_t a_float_x4, b_float_x4, c_float_x4;
-    for (int i = 0; i < num; i+=4)
-    {
+    for (int i = 0; i < num; i += 4) {
         a_float_x4 = vld1q_f32(p1 + i);
         b_float_x4 = vld1q_f32(p2 + i);
         c_float_x4 = vaddq_f32(a_float_x4, b_float_x4);
         vst1q_f32(p2 + i, c_float_x4);
     }
-#else
-    for (int i = 0; i < num; i++) {
-        p2[i] += p1[i];
-    }
-#endif
     return true;
 }
 
 inline bool vecAdd(const float *p1, const float *p2, float *p3, int num) {
-#if defined(_ENABLE_AVX512)
-    __m512 a_float_x16, b_float_x16;
-    for (int i = 0; i < num; i += 16)
-    {
-        a_float_x16 = _mm512_load_ps(p1 + i);
-        b_float_x16 = _mm512_load_ps(p2 + i);
-        b_float_x16 = _mm512_add_ps(a_float_x16, b_float_x16);
-        _mm512_store_ps(p3 + i, b_float_x16);
-    }
-#elif defined(_ENABLE_AVX2)
-    __m256 a_float_x8, b_float_x8;
-    for (int i = 0; i < num; i += 8)
-    {
-        a_float_x8 = _mm256_load_ps(p1 + i);
-        b_float_x8 = _mm256_load_ps(p2 + i);
-        b_float_x8 = _mm256_add_ps(a_float_x8, b_float_x8);
-        _mm256_store_ps(p3 + i, b_float_x8);
-    }
-#elif defined(_ENABLE_NEON)
+    // NEON ACC
     float32x4_t a_float_x4, b_float_x4, c_float_x4;
     for (int i = 0; i < num; i+=4)
     {
@@ -274,19 +174,11 @@ inline bool vecAdd(const float *p1, const float *p2, float *p3, int num) {
         c_float_x4 = vaddq_f32(a_float_x4, b_float_x4);
         vst1q_f32(p3 + i, c_float_x4);
     }
-#else
-    for (int i = 0; i < num; i++) {
-        p3[i] = p1[i] + p2[i];
-    }
-#endif
     return true;
 }
 
 bool convolution_1x1pointwise(const CDataBlob<float> &inputData, const Filters<float> &filters,
                               CDataBlob<float> &outputData) {
-#if defined(_OPENMP)
-#pragma omp parallel for
-#endif
     for (int row = 0; row < outputData.rows; row++) {
         for (int col = 0; col < outputData.cols; col++) {
             float *pOut = outputData.ptr(row, col);
@@ -305,9 +197,6 @@ bool convolution_3x3depthwise(const CDataBlob<float> &inputData, const Filters<f
                               CDataBlob<float> &outputData) {
     //set all elements in outputData to zeros
     outputData.setZero();
-#if defined(_OPENMP)
-#pragma omp parallel for
-#endif
     for (int row = 0; row < outputData.rows; row++) {
         int srcy_start = row - 1;
         int srcy_end = srcy_start + 3;
@@ -342,30 +231,8 @@ bool relu(CDataBlob<float> &inputoutputData) {
     }
 
     int len = inputoutputData.cols * inputoutputData.rows * inputoutputData.channelStep / sizeof(float);
-
-
-#if defined(_ENABLE_AVX512)
-    __m512 a, bzeros;
-    bzeros = _mm512_setzero_ps(); //zeros
-    for( int i = 0; i < len; i+=16)
-    {
-        a = _mm512_load_ps(inputoutputData.data + i);
-        a = _mm512_max_ps(a, bzeros);
-        _mm512_store_ps(inputoutputData.data + i, a);
-    }
-#elif defined(_ENABLE_AVX2)
-    __m256 a, bzeros;
-    bzeros = _mm256_setzero_ps(); //zeros
-    for( int i = 0; i < len; i+=8)
-    {
-        a = _mm256_load_ps(inputoutputData.data + i);
-        a = _mm256_max_ps(a, bzeros);
-        _mm256_store_ps(inputoutputData.data + i, a);
-    }
-#else
     for (int i = 0; i < len; i++)
         inputoutputData.data[i] *= (inputoutputData.data[i] > 0);
-#endif
 
     return true;
 }
@@ -480,16 +347,16 @@ CDataBlob<float> convolution(const CDataBlob<float> &inputData, const Filters<fl
 
 CDataBlob<float> convolutionDP(const CDataBlob<float> &inputData,
                                const Filters<float> &filtersP, const Filters<float> &filtersD, bool do_relu) {
-    CDataBlob<float> tmp = convolution(inputData, filtersP, false);
-    CDataBlob<float> out = convolution(tmp, filtersD, do_relu);
+    CDataBlob<float> tmp = NeonAcc::convolution(inputData, filtersP, false);
+    CDataBlob<float> out = NeonAcc::convolution(tmp, filtersD, do_relu);
     return out;
 }
 
 CDataBlob<float> convolution4layerUnit(const CDataBlob<float> &inputData,
                                        const Filters<float> &filtersP1, const Filters<float> &filtersD1,
                                        const Filters<float> &filtersP2, const Filters<float> &filtersD2, bool do_relu) {
-    CDataBlob<float> tmp = convolutionDP(inputData, filtersP1, filtersD1, true);
-    CDataBlob<float> out = convolutionDP(tmp, filtersP2, filtersD2, do_relu);
+    CDataBlob<float> tmp = NeonAcc::convolutionDP(inputData, filtersP1, filtersD1, true);
+    CDataBlob<float> out = NeonAcc::convolutionDP(tmp, filtersP2, filtersD2, do_relu);
     return out;
 }
 
@@ -533,9 +400,9 @@ CDataBlob<float> maxpooling2x2S2(const CDataBlob<float> &inputData) {
             float *pOut = outputData.ptr(row, col);
             float *pIn = inputData.data;
 
-#if defined(_ENABLE_NEON)
             for (int ch = 0; ch < outputData.channels; ch += 4)
             {
+                // NEON ACC
                 float32x4_t tmp;
                 float32x4_t maxVal = vld1q_f32(pIn + ch + inputMatOffsetsInElement[0]);
                 for (int ec = 1; ec < elementCount; ec++)
@@ -545,39 +412,6 @@ CDataBlob<float> maxpooling2x2S2(const CDataBlob<float> &inputData) {
                 }
                 vst1q_f32(pOut + ch, maxVal);
             }
-#elif defined(_ENABLE_AVX512)
-            for (int ch = 0; ch < outputData.channels; ch += 16)
-            {
-                __m512 tmp;
-                __m512 maxVal = _mm512_load_ps((__m512 const*)(pIn + ch + inputMatOffsetsInElement[0]));
-                for (int ec = 1; ec < elementCount; ec++)
-                {
-                    tmp = _mm512_load_ps((__m512 const*)(pIn + ch + inputMatOffsetsInElement[ec]));
-                    maxVal = _mm512_max_ps(maxVal, tmp);
-                }
-                _mm512_store_ps((__m512*)(pOut + ch), maxVal);
-            }
-#elif defined(_ENABLE_AVX2)
-            for (int ch = 0; ch < outputData.channels; ch += 8)
-            {
-                __m256 tmp;
-                __m256 maxVal = _mm256_load_ps((float const*)(pIn + ch + inputMatOffsetsInElement[0]));
-                for (int ec = 1; ec < elementCount; ec++)
-                {
-                    tmp = _mm256_load_ps((float const*)(pIn + ch + inputMatOffsetsInElement[ec]));
-                    maxVal = _mm256_max_ps(maxVal, tmp);
-                }
-                _mm256_store_ps(pOut + ch, maxVal);
-            }
-#else
-            for (int ch = 0; ch < outputData.channels; ch++) {
-                float maxVal = pIn[ch + inputMatOffsetsInElement[0]];
-                for (int ec = 1; ec < elementCount; ec++) {
-                    maxVal = MAX(maxVal, pIn[ch + inputMatOffsetsInElement[ec]]);
-                }
-                pOut[ch] = maxVal;
-            }
-#endif
         }
     }
     return outputData;
