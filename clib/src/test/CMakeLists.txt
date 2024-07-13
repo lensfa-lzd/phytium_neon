@@ -4,6 +4,10 @@ add_executable(benchmark
         testFullPipeLine.cpp
 )
 
+# 在构建目录输出文件
+set_target_properties(benchmark PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
+
+
 find_package(OpenCV REQUIRED)
 include_directories(${OpenCV_INCLUDE_DIRS})
 
