@@ -356,7 +356,7 @@ namespace NeonACC {
 
     };
 
-    std::vector<FaceRect> objectdetect_cnn(const unsigned char *rgbImageData, int with, int height, int step);
+    std::vector<FaceRect> objectdetect_cnn(unsigned char *rgbImageData, int with, int height, int step);
 
     CDataBlob<float>
     setDataFrom3x3S2P1to1x1S1P0FromImage(const unsigned char *inputData, int imgWidth, int imgHeight, int imgChannels,
