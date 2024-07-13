@@ -49,7 +49,6 @@ the use of this software, even if advised of the possibility of such damage.
 DO NOT EDIT the following code if you don't really understand it.
 */
 
-#include "arm_neon.h"
 //NEON does not support UINT8*INT8 dot product
 //to conver the input data to range [0, 127],
 //and then use INT8*INT8 dot product

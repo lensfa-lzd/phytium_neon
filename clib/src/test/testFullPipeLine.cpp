@@ -1,3 +1,8 @@
+//
+// Created by liang on 2024/7/13.
+//
+
+#include "iostream"
 #include <stdio.h>
 #include <stdlib.h>
 #include <opencv2/opencv.hpp>
@@ -11,7 +16,7 @@ using namespace std;
 #define DETECT_BUFFER_SIZE 0x20000
 
 
-void benchmark(Mat image, int total_count,
+void benchmarkFullPipeLine(Mat image, int total_count,
                int *benchFunction(unsigned char *result_buffer, unsigned char *rgb_image_data, int width, int height,
                                   int step)) {
     int num_thread = 1;
@@ -40,7 +45,7 @@ void benchmark(Mat image, int total_count,
     for (int i = 0; i < total_count; i++) {
         int idx = 0;
         pResults = benchFunction(pBuffers[idx], image.ptr<unsigned char>(0), (int) image.cols, (int) image.rows,
-                                  (int) image.step);
+                                 (int) image.step);
     }
     tm.stop();
     double t = tm.getTimeMilli();
@@ -51,40 +56,14 @@ void benchmark(Mat image, int total_count,
     free(p);
 }
 
-int main(int argc, char *argv[]) {
-    // argc: 表示参数个数，包括程序名本身(argv[0])。 在这个例子中， argc 的值是 4。
-    // argv: 是一个 char* 类型的数组，存储了各个参数字符串。
-    if (argc == 1 || argc > 3) {
-        printf("Usage: %s <image_file_name>\n", argv[0]);
-        printf("Usage: %s <image_file_name> <repeat_count>\n", argv[0]);
-        return -1;
-    }
-    // 重复的图像处理次数
-    int total_count;
-    if (argc == 2) {
-        total_count = 4;
-    } else {
-        total_count = stoi(argv[2]);
-    }
-    printf("Repeat %d times.\n", total_count);
-
-    //load an image and convert it to gray (single-channel)
-    Mat image = imread(argv[1]);
-    if (image.empty()) {
-        fprintf(stderr, "Can not load the image file %s.\n", argv[1]);
-        return -1;
-    }
-
+void testFullPipeLine(Mat image, int total_count) {
     int num_thread = 1;
-    printf("There is %d thread.\n", num_thread);
+    printf("Using %d thread.\n", num_thread);
 
     printf("Benchmarking...\n");
     printf("facedetect_cnn\n");
-    benchmark(image, total_count, BASE::facedetect_cnn);
+    benchmarkFullPipeLine(image, total_count, BASE::facedetect_cnn);
     printf("----\n");
     printf("facedetect_cnn_neon\n");
-    benchmark(image, total_count, NeonACC::facedetect_cnn);
-
-    return 0;
+    benchmarkFullPipeLine(image, total_count, NeonACC::facedetect_cnn);
 }
-
