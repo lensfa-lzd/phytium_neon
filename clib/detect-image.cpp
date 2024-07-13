@@ -41,8 +41,8 @@ the use of this software, even if advised of the possibility of such damage.
 #include "facedetectcnn.h"
 
 //define the buffer size. Do not change the size!
-//0x9000 = 1024 * (16 * 2 + 4), detect 1024 face at most
-#define DETECT_BUFFER_SIZE 0x9000
+//0x800 = 64 * (16 * 2), detect 64 face at most
+#define DETECT_BUFFER_SIZE 0x800
 using namespace cv;
 using namespace std;
 
@@ -66,7 +66,7 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
-    int *pResults = NULL;
+    short *pResults = NULL;
     //pBuffer is used in the detection functions.
     //If you call functions in multiple threads, please create one buffer for each thread!
     unsigned char *pBuffer = (unsigned char *) malloc(DETECT_BUFFER_SIZE);
@@ -96,7 +96,8 @@ int main(int argc, char *argv[]) {
     Mat result_image = image.clone();
     //print the detection results
     for (int i = 0; i < faces; i++) {
-        short *p = ((short *) (pResults + 1)) + 16 * i;
+//        short *p = ((short *) (pResults + 1)) + 16 * i;
+        short *p = pResults + 1 + 16 * i;
         int confidence = p[0];
         int x = p[1];
         int y = p[2];

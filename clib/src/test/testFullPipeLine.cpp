@@ -16,10 +16,11 @@ using namespace std;
 
 
 double benchmarkFullPipeLine(Mat image, int total_count,
-               int *benchFunction(unsigned char *result_buffer, unsigned char *rgb_image_data, int width, int height,
-                                  int step)) {
+                             short *benchFunction(unsigned char *result_buffer, unsigned char *rgb_image_data,
+                                                  int width, int height,
+                                                  int step)) {
     int num_thread = 1;
-    int *pResults = NULL;
+    short *pResults = NULL;
     unsigned char *pBuffers[1024];//large enough
 
     //pBuffer is used in the detection functions.
@@ -64,7 +65,7 @@ void testFullPipeLine(Mat image, int total_count) {
     double t1 = benchmarkFullPipeLine(image, total_count, BASE::facedetect_cnn);
     printf("Neon加速   ");
     double t2 = benchmarkFullPipeLine(image, total_count, NeonACC::facedetect_cnn);
-    printf("优化效率:   %.2f%%\n", 100 * (t1-t2) / t1);
+    printf("优化效率:   %.2f%%\n", 100 * (t1 - t2) / t1);
     printf("结束---------------全流程测试---------------结束\n");
     printf("\n\n");
 }

@@ -199,7 +199,7 @@ std::vector<BASE::FaceRect> BASE::objectdetect_cnn(unsigned char *rgbImageData, 
     return facesInfo;
 }
 
-int *BASE::facedetect_cnn(
+short *BASE::facedetect_cnn(
         unsigned char *result_buffer, //buffer memory for storing face detection results, !!its size must be 0x9000 Bytes!!
         unsigned char *rgb_image_data, int width, int height,
         int step) //input image, it must be BGR (three-channel) image!
@@ -212,20 +212,18 @@ int *BASE::facedetect_cnn(
     //clear memory
     result_buffer[0] = 0;
     result_buffer[1] = 0;
-    result_buffer[2] = 0;
-    result_buffer[3] = 0;
 
     std::vector<BASE::FaceRect> faces = objectdetect_cnn(rgb_image_data, width, height, step);
 
-    int num_faces = (int) faces.size();
+    short num_faces = (short) faces.size();
     num_faces = MIN(num_faces, 1024); //1024 = 0x9000 / (16 * 2 + 4)
 
-    int *pCount = (int *) result_buffer;
+    short *pCount = (short *) result_buffer;
     pCount[0] = num_faces;
 
     for (int i = 0; i < num_faces; i++) {
         //copy data
-        short *p = ((short *) (result_buffer + 4)) + 16 * size_t(i);
+        short *p = ((short *) (result_buffer + 2)) + 16 * i;
         p[0] = (short) (faces[i].score * 100);
         p[1] = (short) faces[i].x;
         p[2] = (short) faces[i].y;

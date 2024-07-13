@@ -73,7 +73,7 @@ DO NOT EDIT the following code if you don't really understand it.
 
 namespace BASE {
     // 外部调用需要
-    extern "C" int *facedetect_cnn(
+    extern "C" short *facedetect_cnn(
             unsigned char *result_buffer, //buffer memory for storing face detection results, !!its size must be 0x20000 Bytes!!
             unsigned char *rgb_image_data, int width, int height, int step);
 

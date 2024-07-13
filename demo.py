@@ -23,7 +23,7 @@ lib.facedetect_cnn.argtypes = [
     ctypes.c_int,  # height
     ctypes.c_int  # step
 ]
-lib.facedetect_cnn.restype = ctypes.POINTER(ctypes.c_int)
+lib.facedetect_cnn.restype = ctypes.POINTER(ctypes.c_short)
 
 
 def detect_faces(image_path):
@@ -55,7 +55,7 @@ def detect_faces(image_path):
     image_data = image_np.ctypes.data_as(ctypes.POINTER(ctypes.c_ubyte))
 
     # 分配结果缓冲区
-    result_buffer = (ctypes.c_ubyte * 0x20000)()
+    result_buffer = (ctypes.c_ubyte * 0x800)()
 
     # 调用 C++ 函数
     result_ptr = lib.facedetect_cnn(
@@ -66,25 +66,11 @@ def detect_faces(image_path):
     array_length = result_ptr[0]
     print("得到结果数量: ", array_length)
     if array_length > 0:
-        # start_ptr = result_ptr + ctypes.sizeof(ctypes.c_int)
-        start_ptr = ctypes.byref(result_ptr, ctypes.sizeof(ctypes.c_int))
-        start_ptr = ctypes.cast(start_ptr, ctypes.POINTER(ctypes.c_short))
-
         # 遍历结果数组
+        data_array: list = result_ptr[1: 16*array_length]
         for i in range(array_length):
-            # 计算指向每个 short 元素的指针
-            # short *p = ((short *) (pResults + 1)) + 16 * i;
-            p = ctypes.byref(start_ptr, ctypes.sizeof(ctypes.c_short) * (16 * i))
-            p = ctypes.cast(p, ctypes.POINTER(ctypes.c_short))
-            shorts = [p[j] for j in range(16)]
-            print(shorts)
-
-            # p += 16 * i
-            # 访问 p 指向的值
-            # value = p[0]
-            #
-            # # 使用 value 进行后续操作
-            # print(f"Element {i}: {value}")
+            result = data_array[i * 16: (1 + i) * 15]
+            print(result)
 
 
 # 示例用法
