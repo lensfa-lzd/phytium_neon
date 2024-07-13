@@ -1,7 +1,8 @@
 // Auto generated data file
 // Copyright (c) 2018-2023, Shiqi Yu, all rights reserved.
-#include "facedetectcnn.h"
+#include "facedetectcnn_neon.h"
 
+using namespace NeonACC;
 float backbone__model0_pw_weight[
         16 * 32 * 1 * 1] = {0.00122f, 0.00239f, 0.00216f, -0.000522f, -0.000684f, -0.000736f, -0.000954f, -0.00216f,
                             -0.002f, 0.00161f, 0.0028f, 0.00249f, -0.00101f, -0.00134f, -0.00135f, -0.00173f, -0.00327f,

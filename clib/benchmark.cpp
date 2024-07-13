@@ -4,7 +4,6 @@
 #include "facedetectcnn.h"
 #include "facedetectcnn_neon.h"
 
-
 using namespace cv;
 using namespace std;
 
@@ -40,7 +39,7 @@ void benchmark(Mat image, int total_count,
 
     for (int i = 0; i < total_count; i++) {
         int idx = 0;
-        pResults = facedetect_cnn(pBuffers[idx], image.ptr<unsigned char>(0), (int) image.cols, (int) image.rows,
+        pResults = benchFunction(pBuffers[idx], image.ptr<unsigned char>(0), (int) image.cols, (int) image.rows,
                                   (int) image.step);
     }
     tm.stop();
@@ -84,7 +83,7 @@ int main(int argc, char *argv[]) {
     benchmark(image, total_count, facedetect_cnn);
     printf("----\n");
     printf("facedetect_cnn_neon\n");
-    benchmark(image, total_count, facedetect_cnn_neon);
+    benchmark(image, total_count, NeonACC::facedetect_cnn_neon);
 
     return 0;
 }

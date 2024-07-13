@@ -41,6 +41,7 @@ the use of this software, even if advised of the possibility of such damage.
 #include <float.h> //for FLT_EPSION
 #include <algorithm>//for stable_sort, sort
 
+using namespace NeonACC;
 
 typedef struct NormalizedBBox_ {
     float xmin;
@@ -347,16 +348,16 @@ CDataBlob<float> convolution(const CDataBlob<float> &inputData, const Filters<fl
 
 CDataBlob<float> convolutionDP(const CDataBlob<float> &inputData,
                                const Filters<float> &filtersP, const Filters<float> &filtersD, bool do_relu) {
-    CDataBlob<float> tmp = convolution(inputData, filtersP, false);
-    CDataBlob<float> out = convolution(tmp, filtersD, do_relu);
+    CDataBlob<float> tmp = NeonACC::convolution(inputData, filtersP, false);
+    CDataBlob<float> out = NeonACC::convolution(tmp, filtersD, do_relu);
     return out;
 }
 
 CDataBlob<float> convolution4layerUnit(const CDataBlob<float> &inputData,
                                        const Filters<float> &filtersP1, const Filters<float> &filtersD1,
                                        const Filters<float> &filtersP2, const Filters<float> &filtersD2, bool do_relu) {
-    CDataBlob<float> tmp = convolutionDP(inputData, filtersP1, filtersD1, true);
-    CDataBlob<float> out = convolutionDP(tmp, filtersP2, filtersD2, do_relu);
+    CDataBlob<float> tmp = NeonACC::convolutionDP(inputData, filtersP1, filtersD1, true);
+    CDataBlob<float> out = NeonACC::convolutionDP(tmp, filtersP2, filtersD2, do_relu);
     return out;
 }
 
@@ -481,7 +482,7 @@ void kps_decode(CDataBlob<float> &kps_pred, const CDataBlob<float> &priors, int 
 }
 
 template<typename T>
-CDataBlob<T> concat3(const CDataBlob<T> &inputData1, const CDataBlob<T> &inputData2, const CDataBlob<T> &inputData3) {
+CDataBlob<T> NeonACC::concat3(const CDataBlob<T> &inputData1, const CDataBlob<T> &inputData2, const CDataBlob<T> &inputData3) {
     if ((inputData1.isEmpty()) || (inputData2.isEmpty()) || (inputData3.isEmpty())) {
         std::cerr << __FUNCTION__ << ": The input data is empty." << std::endl;
         exit(1);
@@ -522,10 +523,10 @@ CDataBlob<T> concat3(const CDataBlob<T> &inputData1, const CDataBlob<T> &inputDa
 }
 
 template CDataBlob<float>
-concat3(const CDataBlob<float> &inputData1, const CDataBlob<float> &inputData2, const CDataBlob<float> &inputData3);
+NeonACC::concat3(const CDataBlob<float> &inputData1, const CDataBlob<float> &inputData2, const CDataBlob<float> &inputData3);
 
 template<typename T>
-CDataBlob<T> blob2vector(const CDataBlob<T> &inputData) {
+CDataBlob<T> NeonACC::blob2vector(const CDataBlob<T> &inputData) {
     if (inputData.isEmpty()) {
         std::cerr << __FUNCTION__ << ": The input data is empty." << std::endl;
         exit(1);
@@ -546,7 +547,7 @@ CDataBlob<T> blob2vector(const CDataBlob<T> &inputData) {
     return outputData;
 }
 
-template CDataBlob<float> blob2vector(const CDataBlob<float> &inputData);
+template CDataBlob<float> NeonACC::blob2vector(const CDataBlob<float> &inputData);
 
 void sigmoid(CDataBlob<float> &inputData) {
     for (int r = 0; r < inputData.rows; ++r) {
