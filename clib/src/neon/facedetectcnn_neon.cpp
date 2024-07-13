@@ -347,16 +347,16 @@ CDataBlob<float> convolution(const CDataBlob<float> &inputData, const Filters<fl
 
 CDataBlob<float> convolutionDP(const CDataBlob<float> &inputData,
                                const Filters<float> &filtersP, const Filters<float> &filtersD, bool do_relu) {
-    CDataBlob<float> tmp = NeonAcc::convolution(inputData, filtersP, false);
-    CDataBlob<float> out = NeonAcc::convolution(tmp, filtersD, do_relu);
+    CDataBlob<float> tmp = convolution(inputData, filtersP, false);
+    CDataBlob<float> out = convolution(tmp, filtersD, do_relu);
     return out;
 }
 
 CDataBlob<float> convolution4layerUnit(const CDataBlob<float> &inputData,
                                        const Filters<float> &filtersP1, const Filters<float> &filtersD1,
                                        const Filters<float> &filtersP2, const Filters<float> &filtersD2, bool do_relu) {
-    CDataBlob<float> tmp = NeonAcc::convolutionDP(inputData, filtersP1, filtersD1, true);
-    CDataBlob<float> out = NeonAcc::convolutionDP(tmp, filtersP2, filtersD2, do_relu);
+    CDataBlob<float> tmp = convolutionDP(inputData, filtersP1, filtersD1, true);
+    CDataBlob<float> out = convolutionDP(tmp, filtersP2, filtersD2, do_relu);
     return out;
 }
 

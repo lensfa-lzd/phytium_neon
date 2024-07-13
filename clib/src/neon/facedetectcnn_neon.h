@@ -49,7 +49,6 @@ the use of this software, even if advised of the possibility of such damage.
 DO NOT EDIT the following code if you don't really understand it.
 */
 
-
 #include "arm_neon.h"
 //NEON does not support UINT8*INT8 dot product
 //to conver the input data to range [0, 127],
@@ -63,7 +62,7 @@ DO NOT EDIT the following code if you don't really understand it.
 #include <typeinfo>
 
 
-int *facedetect_cnn(
+int *facedetect_cnn_neon(
         unsigned char *result_buffer, //buffer memory for storing face detection results, !!its size must be 0x20000 Bytes!!
         unsigned char *rgb_image_data, int width, int height, int step);
 

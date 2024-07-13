@@ -4,17 +4,12 @@
 #include "facedetectcnn.h"
 #include "facedetectcnn_neon.h"
 
-#ifdef _OPENMP
-#include <omp.h>
-#endif
-
 
 using namespace cv;
 using namespace std;
 
 //define the buffer size. Do not change the size!
 #define DETECT_BUFFER_SIZE 0x20000
-using namespace cv;
 
 
 void benchmark(Mat image, int total_count,
@@ -89,7 +84,7 @@ int main(int argc, char *argv[]) {
     benchmark(image, total_count, facedetect_cnn);
     printf("----\n");
     printf("facedetect_cnn_neon\n");
-    benchmark(image, total_count, NeonAcc::facedetect_cnn);
+    benchmark(image, total_count, facedetect_cnn_neon);
 
     return 0;
 }
