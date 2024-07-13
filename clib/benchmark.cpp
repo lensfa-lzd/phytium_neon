@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <opencv2/opencv.hpp>
-//#include "facedetectcnn.h"
+#include "facedetectcnn.h"
 #include "facedetectcnn_neon.h"
 
 using namespace cv;
@@ -80,10 +80,10 @@ int main(int argc, char *argv[]) {
 
     printf("Benchmarking...\n");
     printf("facedetect_cnn\n");
-//    benchmark(image, total_count, facedetect_cnn);
+    benchmark(image, total_count, BASE::facedetect_cnn);
     printf("----\n");
     printf("facedetect_cnn_neon\n");
-    benchmark(image, total_count, NeonACC::facedetect_cnn_neon);
+    benchmark(image, total_count, NeonACC::facedetect_cnn);
 
     return 0;
 }

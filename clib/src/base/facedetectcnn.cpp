@@ -36,7 +36,7 @@ or tort (including negligence or otherwise) arising in any way out of
 the use of this software, even if advised of the possibility of such damage.
 */
 
-#include "facedetectcnn_neon.h"
+#include "facedetectcnn.h"
 #include <cmath>
 #include <float.h> //for FLT_EPSION
 #include <algorithm>//for stable_sort, sort
@@ -51,7 +51,7 @@ typedef struct NormalizedBBox_ {
 } NormalizedBBox;
 
 
-void *NeonACC::myAlloc(size_t size) {
+void *BASE::myAlloc(size_t size) {
     char *ptr, *ptr0;
     ptr0 = (char *) malloc(
             (size_t) (size + _MALLOC_ALIGN * ((size >= 4096) + 1L) + sizeof(char *)));
@@ -66,7 +66,7 @@ void *NeonACC::myAlloc(size_t size) {
     return ptr;
 }
 
-void NeonACC::myFree_(void *ptr) {
+void BASE::myFree_(void *ptr) {
     // Pointer must be aligned by _MALLOC_ALIGN
     if (ptr) {
         if (((size_t) ptr & (_MALLOC_ALIGN - 1)) != 0)
@@ -76,10 +76,9 @@ void NeonACC::myFree_(void *ptr) {
 }
 
 
-NeonACC::CDataBlob<float>
-NeonACC::setDataFrom3x3S2P1to1x1S1P0FromImage(const unsigned char *inputData, int imgWidth, int imgHeight,
-                                              int imgChannels,
-                                              int imgWidthStep, int padDivisor) {
+BASE::CDataBlob<float>
+BASE::setDataFrom3x3S2P1to1x1S1P0FromImage(const unsigned char *inputData, int imgWidth, int imgHeight, int imgChannels,
+                                     int imgWidthStep, int padDivisor) {
     if (imgChannels != 3) {
         std::cerr << __FUNCTION__ << ": The input image must be a 3-channel RGB image." << std::endl;
         exit(1);
@@ -91,7 +90,7 @@ NeonACC::setDataFrom3x3S2P1to1x1S1P0FromImage(const unsigned char *inputData, in
     int rows = ((imgHeight - 1) / padDivisor + 1) * padDivisor / 2;
     int cols = ((imgWidth - 1) / padDivisor + 1) * padDivisor / 2;
     int channels = 32;
-    NeonACC::CDataBlob<float> outBlob(rows, cols, channels);
+    BASE::CDataBlob<float> outBlob(rows, cols, channels);
 
     for (int r = 0; r < rows; r++) {
         for (int c = 0; c < cols; c++) {
@@ -121,170 +120,170 @@ NeonACC::setDataFrom3x3S2P1to1x1S1P0FromImage(const unsigned char *inputData, in
     return outBlob;
 }
 
-namespace NeonACC {
 //p1 and p2 must be 512-bit aligned (16 float numbers)
-    inline float dotProduct(const float *p1, const float *p2, int num) {
-        float sum = 0.f;
-        // NEON ACC
-        float32x4_t a_float_x4, b_float_x4;
-        float32x4_t sum_float_x4;
-        sum_float_x4 = vdupq_n_f32(0);
-        for (int i = 0; i < num; i += 4) {
-            a_float_x4 = vld1q_f32(p1 + i);
-            b_float_x4 = vld1q_f32(p2 + i);
-            sum_float_x4 = vaddq_f32(sum_float_x4, vmulq_f32(a_float_x4, b_float_x4));
-        }
-        sum += vgetq_lane_f32(sum_float_x4, 0);
-        sum += vgetq_lane_f32(sum_float_x4, 1);
-        sum += vgetq_lane_f32(sum_float_x4, 2);
-        sum += vgetq_lane_f32(sum_float_x4, 3);
-        return sum;
+inline float dotProduct(const float *p1, const float *p2, int num) {
+    float sum = 0.f;
+    // NEON ACC
+    float32x4_t a_float_x4, b_float_x4;
+    float32x4_t sum_float_x4;
+    sum_float_x4 = vdupq_n_f32(0);
+    for (int i = 0; i < num; i += 4) {
+        a_float_x4 = vld1q_f32(p1 + i);
+        b_float_x4 = vld1q_f32(p2 + i);
+        sum_float_x4 = vaddq_f32(sum_float_x4, vmulq_f32(a_float_x4, b_float_x4));
     }
+    sum += vgetq_lane_f32(sum_float_x4, 0);
+    sum += vgetq_lane_f32(sum_float_x4, 1);
+    sum += vgetq_lane_f32(sum_float_x4, 2);
+    sum += vgetq_lane_f32(sum_float_x4, 3);
+    return sum;
+}
 
-    inline bool vecMulAdd(const float *p1, const float *p2, float *p3, int num) {
-        // NEON ACC
-        float32x4_t a_float_x4, b_float_x4, c_float_x4;
-        for (int i = 0; i < num; i += 4) {
-            a_float_x4 = vld1q_f32(p1 + i);
-            b_float_x4 = vld1q_f32(p2 + i);
-            c_float_x4 = vld1q_f32(p3 + i);
-            c_float_x4 = vaddq_f32(c_float_x4, vmulq_f32(a_float_x4, b_float_x4));
-            vst1q_f32(p3 + i, c_float_x4);
-        }
-        return true;
+inline bool vecMulAdd(const float *p1, const float *p2, float *p3, int num) {
+    // NEON ACC
+    float32x4_t a_float_x4, b_float_x4, c_float_x4;
+    for (int i = 0; i < num; i += 4) {
+        a_float_x4 = vld1q_f32(p1 + i);
+        b_float_x4 = vld1q_f32(p2 + i);
+        c_float_x4 = vld1q_f32(p3 + i);
+        c_float_x4 = vaddq_f32(c_float_x4, vmulq_f32(a_float_x4, b_float_x4));
+        vst1q_f32(p3 + i, c_float_x4);
     }
+    return true;
+}
 
-    inline bool vecAdd(const float *p1, float *p2, int num) {
-        // NEON ACC
-        float32x4_t a_float_x4, b_float_x4, c_float_x4;
-        for (int i = 0; i < num; i += 4) {
-            a_float_x4 = vld1q_f32(p1 + i);
-            b_float_x4 = vld1q_f32(p2 + i);
-            c_float_x4 = vaddq_f32(a_float_x4, b_float_x4);
-            vst1q_f32(p2 + i, c_float_x4);
-        }
-        return true;
+inline bool vecAdd(const float *p1, float *p2, int num) {
+    // NEON ACC
+    float32x4_t a_float_x4, b_float_x4, c_float_x4;
+    for (int i = 0; i < num; i += 4) {
+        a_float_x4 = vld1q_f32(p1 + i);
+        b_float_x4 = vld1q_f32(p2 + i);
+        c_float_x4 = vaddq_f32(a_float_x4, b_float_x4);
+        vst1q_f32(p2 + i, c_float_x4);
     }
+    return true;
+}
 
-    inline bool vecAdd(const float *p1, const float *p2, float *p3, int num) {
-        // NEON ACC
-        float32x4_t a_float_x4, b_float_x4, c_float_x4;
-        for (int i = 0; i < num; i += 4) {
-            a_float_x4 = vld1q_f32(p1 + i);
-            b_float_x4 = vld1q_f32(p2 + i);
-            c_float_x4 = vaddq_f32(a_float_x4, b_float_x4);
-            vst1q_f32(p3 + i, c_float_x4);
-        }
-        return true;
+inline bool vecAdd(const float *p1, const float *p2, float *p3, int num) {
+    // NEON ACC
+    float32x4_t a_float_x4, b_float_x4, c_float_x4;
+    for (int i = 0; i < num; i+=4)
+    {
+        a_float_x4 = vld1q_f32(p1 + i);
+        b_float_x4 = vld1q_f32(p2 + i);
+        c_float_x4 = vaddq_f32(a_float_x4, b_float_x4);
+        vst1q_f32(p3 + i, c_float_x4);
     }
+    return true;
+}
 
-    bool convolution_1x1pointwise(const NeonACC::CDataBlob<float> &inputData, const NeonACC::Filters<float> &filters,
-                                  NeonACC::CDataBlob<float> &outputData) {
-        for (int row = 0; row < outputData.rows; row++) {
-            for (int col = 0; col < outputData.cols; col++) {
-                float *pOut = outputData.ptr(row, col);
-                const float *pIn = inputData.ptr(row, col);
-                for (int ch = 0; ch < outputData.channels; ch++) {
-                    const float *pF = filters.weights.ptr(0, ch);
-                    pOut[ch] = dotProduct(pIn, pF, inputData.channels);
-                    pOut[ch] += filters.biases.data[ch];
+bool convolution_1x1pointwise(const BASE::CDataBlob<float> &inputData, const BASE::Filters<float> &filters,
+                              BASE::CDataBlob<float> &outputData) {
+    for (int row = 0; row < outputData.rows; row++) {
+        for (int col = 0; col < outputData.cols; col++) {
+            float *pOut = outputData.ptr(row, col);
+            const float *pIn = inputData.ptr(row, col);
+            for (int ch = 0; ch < outputData.channels; ch++) {
+                const float *pF = filters.weights.ptr(0, ch);
+                pOut[ch] = dotProduct(pIn, pF, inputData.channels);
+                pOut[ch] += filters.biases.data[ch];
+            }
+        }
+    }
+    return true;
+}
+
+bool convolution_3x3depthwise(const BASE::CDataBlob<float> &inputData, const BASE::Filters<float> &filters,
+                              BASE::CDataBlob<float> &outputData) {
+    //set all elements in outputData to zeros
+    outputData.setZero();
+    for (int row = 0; row < outputData.rows; row++) {
+        int srcy_start = row - 1;
+        int srcy_end = srcy_start + 3;
+        srcy_start = MAX(0, srcy_start);
+        srcy_end = MIN(srcy_end, inputData.rows);
+
+        for (int col = 0; col < outputData.cols; col++) {
+            float *pOut = outputData.ptr(row, col);
+            int srcx_start = col - 1;
+            int srcx_end = srcx_start + 3;
+            srcx_start = MAX(0, srcx_start);
+            srcx_end = MIN(srcx_end, inputData.cols);
+
+
+            for (int r = srcy_start; r < srcy_end; r++)
+                for (int c = srcx_start; c < srcx_end; c++) {
+                    int filter_r = r - row + 1;
+                    int filter_c = c - col + 1;
+                    int filter_idx = filter_r * 3 + filter_c;
+                    vecMulAdd(inputData.ptr(r, c), filters.weights.ptr(0, filter_idx), pOut, filters.num_filters);
                 }
-            }
-        }
-        return true;
-    }
-
-    bool convolution_3x3depthwise(const NeonACC::CDataBlob<float> &inputData, const NeonACC::Filters<float> &filters,
-                                  NeonACC::CDataBlob<float> &outputData) {
-        //set all elements in outputData to zeros
-        outputData.setZero();
-        for (int row = 0; row < outputData.rows; row++) {
-            int srcy_start = row - 1;
-            int srcy_end = srcy_start + 3;
-            srcy_start = MAX(0, srcy_start);
-            srcy_end = MIN(srcy_end, inputData.rows);
-
-            for (int col = 0; col < outputData.cols; col++) {
-                float *pOut = outputData.ptr(row, col);
-                int srcx_start = col - 1;
-                int srcx_end = srcx_start + 3;
-                srcx_start = MAX(0, srcx_start);
-                srcx_end = MIN(srcx_end, inputData.cols);
-
-
-                for (int r = srcy_start; r < srcy_end; r++)
-                    for (int c = srcx_start; c < srcx_end; c++) {
-                        int filter_r = r - row + 1;
-                        int filter_c = c - col + 1;
-                        int filter_idx = filter_r * 3 + filter_c;
-                        vecMulAdd(inputData.ptr(r, c), filters.weights.ptr(0, filter_idx), pOut, filters.num_filters);
-                    }
-                vecAdd(filters.biases.ptr(0, 0), pOut, filters.num_filters);
-            }
-        }
-        return true;
-    }
-
-    bool relu(NeonACC::CDataBlob<float> &inputoutputData) {
-        if (inputoutputData.isEmpty()) {
-            std::cerr << __FUNCTION__ << ": The input data is empty." << std::endl;
-            return false;
-        }
-
-        int len = inputoutputData.cols * inputoutputData.rows * inputoutputData.channelStep / sizeof(float);
-        for (int i = 0; i < len; i++)
-            inputoutputData.data[i] *= (inputoutputData.data[i] > 0);
-
-        return true;
-    }
-
-    void IntersectBBox(const NormalizedBBox &bbox1, const NormalizedBBox &bbox2,
-                       NormalizedBBox *intersect_bbox) {
-        if (bbox2.xmin > bbox1.xmax || bbox2.xmax < bbox1.xmin ||
-            bbox2.ymin > bbox1.ymax || bbox2.ymax < bbox1.ymin) {
-            // Return [0, 0, 0, 0] if there is no intersection.
-            intersect_bbox->xmin = 0;
-            intersect_bbox->ymin = 0;
-            intersect_bbox->xmax = 0;
-            intersect_bbox->ymax = 0;
-        } else {
-            intersect_bbox->xmin = (std::max(bbox1.xmin, bbox2.xmin));
-            intersect_bbox->ymin = (std::max(bbox1.ymin, bbox2.ymin));
-            intersect_bbox->xmax = (std::min(bbox1.xmax, bbox2.xmax));
-            intersect_bbox->ymax = (std::min(bbox1.ymax, bbox2.ymax));
+            vecAdd(filters.biases.ptr(0, 0), pOut, filters.num_filters);
         }
     }
+    return true;
+}
 
-    float JaccardOverlap(const NormalizedBBox &bbox1, const NormalizedBBox &bbox2) {
-        NormalizedBBox intersect_bbox;
-        IntersectBBox(bbox1, bbox2, &intersect_bbox);
-        float intersect_width, intersect_height;
-        intersect_width = intersect_bbox.xmax - intersect_bbox.xmin;
-        intersect_height = intersect_bbox.ymax - intersect_bbox.ymin;
-
-        if (intersect_width > 0 && intersect_height > 0) {
-            float intersect_size = intersect_width * intersect_height;
-            float bsize1 = (bbox1.xmax - bbox1.xmin) * (bbox1.ymax - bbox1.ymin);
-            float bsize2 = (bbox2.xmax - bbox2.xmin) * (bbox2.ymax - bbox2.ymin);
-            return intersect_size / (bsize1 + bsize2 - intersect_size);
-        } else {
-            return 0.f;
-        }
+bool relu(BASE::CDataBlob<float> &inputoutputData) {
+    if (inputoutputData.isEmpty()) {
+        std::cerr << __FUNCTION__ << ": The input data is empty." << std::endl;
+        return false;
     }
 
-    bool SortScoreBBoxPairDescend(const std::pair<float, NormalizedBBox> &pair1,
-                                  const std::pair<float, NormalizedBBox> &pair2) {
-        return pair1.first > pair2.first;
+    int len = inputoutputData.cols * inputoutputData.rows * inputoutputData.channelStep / sizeof(float);
+    for (int i = 0; i < len; i++)
+        inputoutputData.data[i] *= (inputoutputData.data[i] > 0);
+
+    return true;
+}
+
+void IntersectBBox(const NormalizedBBox &bbox1, const NormalizedBBox &bbox2,
+                   NormalizedBBox *intersect_bbox) {
+    if (bbox2.xmin > bbox1.xmax || bbox2.xmax < bbox1.xmin ||
+        bbox2.ymin > bbox1.ymax || bbox2.ymax < bbox1.ymin) {
+        // Return [0, 0, 0, 0] if there is no intersection.
+        intersect_bbox->xmin = 0;
+        intersect_bbox->ymin = 0;
+        intersect_bbox->xmax = 0;
+        intersect_bbox->ymax = 0;
+    } else {
+        intersect_bbox->xmin = (std::max(bbox1.xmin, bbox2.xmin));
+        intersect_bbox->ymin = (std::max(bbox1.ymin, bbox2.ymin));
+        intersect_bbox->xmax = (std::min(bbox1.xmax, bbox2.xmax));
+        intersect_bbox->ymax = (std::min(bbox1.ymax, bbox2.ymax));
     }
 }
 
-NeonACC::CDataBlob<float> NeonACC::upsampleX2(const NeonACC::CDataBlob<float> &inputData) {
+float JaccardOverlap(const NormalizedBBox &bbox1, const NormalizedBBox &bbox2) {
+    NormalizedBBox intersect_bbox;
+    IntersectBBox(bbox1, bbox2, &intersect_bbox);
+    float intersect_width, intersect_height;
+    intersect_width = intersect_bbox.xmax - intersect_bbox.xmin;
+    intersect_height = intersect_bbox.ymax - intersect_bbox.ymin;
+
+    if (intersect_width > 0 && intersect_height > 0) {
+        float intersect_size = intersect_width * intersect_height;
+        float bsize1 = (bbox1.xmax - bbox1.xmin) * (bbox1.ymax - bbox1.ymin);
+        float bsize2 = (bbox2.xmax - bbox2.xmin) * (bbox2.ymax - bbox2.ymin);
+        return intersect_size / (bsize1 + bsize2 - intersect_size);
+    } else {
+        return 0.f;
+    }
+}
+
+bool
+SortScoreBBoxPairDescend(const std::pair<float, NormalizedBBox> &pair1, const std::pair<float, NormalizedBBox> &pair2) {
+    return pair1.first > pair2.first;
+}
+
+
+BASE::CDataBlob<float> BASE::upsampleX2(const BASE::CDataBlob<float> &inputData) {
     if (inputData.isEmpty()) {
         std::cerr << __FUNCTION__ << ": The input data is empty." << std::endl;
         exit(1);
     }
 
-    NeonACC::CDataBlob<float> outData(inputData.rows * 2, inputData.cols * 2, inputData.channels);
+    BASE::CDataBlob<float> outData(inputData.rows * 2, inputData.cols * 2, inputData.channels);
 
     for (int r = 0; r < inputData.rows; r++) {
         for (int c = 0; c < inputData.cols; c++) {
@@ -302,14 +301,13 @@ NeonACC::CDataBlob<float> NeonACC::upsampleX2(const NeonACC::CDataBlob<float> &i
     return outData;
 }
 
-NeonACC::CDataBlob<float>
-NeonACC::elementAdd(const NeonACC::CDataBlob<float> &inputData1, const NeonACC::CDataBlob<float> &inputData2) {
+BASE::CDataBlob<float> BASE::elementAdd(const BASE::CDataBlob<float> &inputData1, const BASE::CDataBlob<float> &inputData2) {
     if (inputData1.rows != inputData2.rows || inputData1.cols != inputData2.cols ||
         inputData1.channels != inputData2.channels) {
         std::cerr << __FUNCTION__ << ": The two input datas must be in the same shape." << std::endl;
         exit(1);
     }
-    NeonACC::CDataBlob<float> outData(inputData1.rows, inputData1.cols, inputData1.channels);
+    BASE::CDataBlob<float> outData(inputData1.rows, inputData1.cols, inputData1.channels);
     for (int r = 0; r < inputData1.rows; r++) {
         for (int c = 0; c < inputData1.cols; c++) {
             const float *pIn1 = inputData1.ptr(r, c);
@@ -321,8 +319,7 @@ NeonACC::elementAdd(const NeonACC::CDataBlob<float> &inputData1, const NeonACC::
     return outData;
 }
 
-NeonACC::CDataBlob<float>
-NeonACC::convolution(const NeonACC::CDataBlob<float> &inputData, const NeonACC::Filters<float> &filters, bool do_relu) {
+BASE::CDataBlob<float> BASE::convolution(const BASE::CDataBlob<float> &inputData, const BASE::Filters<float> &filters, bool do_relu) {
     if (inputData.isEmpty() || filters.weights.isEmpty() || filters.biases.isEmpty()) {
         std::cerr << __FUNCTION__ << ": The input data or filter data is empty" << std::endl;
         exit(1);
@@ -332,7 +329,7 @@ NeonACC::convolution(const NeonACC::CDataBlob<float> &inputData, const NeonACC::
                   << filters.channels << std::endl;
         exit(1);
     }
-    NeonACC::CDataBlob<float> outputData(inputData.rows, inputData.cols, filters.num_filters);
+    BASE::CDataBlob<float> outputData(inputData.rows, inputData.cols, filters.num_filters);
     if (filters.is_pointwise && !filters.is_depthwise)
         convolution_1x1pointwise(inputData, filters, outputData);
     else if (!filters.is_pointwise && filters.is_depthwise)
@@ -348,27 +345,24 @@ NeonACC::convolution(const NeonACC::CDataBlob<float> &inputData, const NeonACC::
     return outputData;
 }
 
-NeonACC::CDataBlob<float> NeonACC::convolutionDP(const NeonACC::CDataBlob<float> &inputData,
-                                                 const NeonACC::Filters<float> &filtersP,
-                                                 const NeonACC::Filters<float> &filtersD, bool do_relu) {
-    NeonACC::CDataBlob<float> tmp = NeonACC::convolution(inputData, filtersP, false);
-    NeonACC::CDataBlob<float> out = NeonACC::convolution(tmp, filtersD, do_relu);
+BASE::CDataBlob<float> BASE::convolutionDP(const BASE::CDataBlob<float> &inputData,
+                               const BASE::Filters<float> &filtersP, const BASE::Filters<float> &filtersD, bool do_relu) {
+    BASE::CDataBlob<float> tmp = BASE::convolution(inputData, filtersP, false);
+    BASE::CDataBlob<float> out = BASE::convolution(tmp, filtersD, do_relu);
     return out;
 }
 
-NeonACC::CDataBlob<float> NeonACC::convolution4layerUnit(const NeonACC::CDataBlob<float> &inputData,
-                                                         const NeonACC::Filters<float> &filtersP1,
-                                                         const NeonACC::Filters<float> &filtersD1,
-                                                         const NeonACC::Filters<float> &filtersP2,
-                                                         const NeonACC::Filters<float> &filtersD2, bool do_relu) {
-    NeonACC::CDataBlob<float> tmp = NeonACC::convolutionDP(inputData, filtersP1, filtersD1, true);
-    NeonACC::CDataBlob<float> out = NeonACC::convolutionDP(tmp, filtersP2, filtersD2, do_relu);
+BASE::CDataBlob<float> BASE::convolution4layerUnit(const BASE::CDataBlob<float> &inputData,
+                                       const BASE::Filters<float> &filtersP1, const BASE::Filters<float> &filtersD1,
+                                       const BASE::Filters<float> &filtersP2, const BASE::Filters<float> &filtersD2, bool do_relu) {
+    BASE::CDataBlob<float> tmp = BASE::convolutionDP(inputData, filtersP1, filtersD1, true);
+    BASE::CDataBlob<float> out = BASE::convolutionDP(tmp, filtersP2, filtersD2, do_relu);
     return out;
 }
 
 
 //only 2X2 S2 is supported
-NeonACC::CDataBlob<float> NeonACC::maxpooling2x2S2(const NeonACC::CDataBlob<float> &inputData) {
+BASE::CDataBlob<float> BASE::maxpooling2x2S2(const BASE::CDataBlob<float> &inputData) {
     if (inputData.isEmpty()) {
         std::cerr << __FUNCTION__ << ": The input data is empty." << std::endl;
         exit(1);
@@ -383,7 +377,7 @@ NeonACC::CDataBlob<float> NeonACC::maxpooling2x2S2(const NeonACC::CDataBlob<floa
         exit(1);
     }
 
-    NeonACC::CDataBlob<float> outputData(outputR, outputC, outputCH);
+    BASE::CDataBlob<float> outputData(outputR, outputC, outputCH);
     outputData.setZero();
 
     for (int row = 0; row < outputData.rows; row++) {
@@ -406,11 +400,13 @@ NeonACC::CDataBlob<float> NeonACC::maxpooling2x2S2(const NeonACC::CDataBlob<floa
             float *pOut = outputData.ptr(row, col);
             float *pIn = inputData.data;
 
-            for (int ch = 0; ch < outputData.channels; ch += 4) {
+            for (int ch = 0; ch < outputData.channels; ch += 4)
+            {
                 // NEON ACC
                 float32x4_t tmp;
                 float32x4_t maxVal = vld1q_f32(pIn + ch + inputMatOffsetsInElement[0]);
-                for (int ec = 1; ec < elementCount; ec++) {
+                for (int ec = 1; ec < elementCount; ec++)
+                {
                     tmp = vld1q_f32(pIn + ch + inputMatOffsetsInElement[ec]);
                     maxVal = vmaxq_f32(maxVal, tmp);
                 }
@@ -421,8 +417,8 @@ NeonACC::CDataBlob<float> NeonACC::maxpooling2x2S2(const NeonACC::CDataBlob<floa
     return outputData;
 }
 
-NeonACC::CDataBlob<float> NeonACC::meshgrid(int feature_width, int feature_height, int stride, float offset) {
-    NeonACC::CDataBlob<float> out(feature_height, feature_width, 2);
+BASE::CDataBlob<float> BASE::meshgrid(int feature_width, int feature_height, int stride, float offset) {
+    BASE::CDataBlob<float> out(feature_height, feature_width, 2);
     for (int r = 0; r < feature_height; ++r) {
         float rx = (float) (r * stride) + offset;
         for (int c = 0; c < feature_width; ++c) {
@@ -434,7 +430,7 @@ NeonACC::CDataBlob<float> NeonACC::meshgrid(int feature_width, int feature_heigh
     return out;
 }
 
-void NeonACC::bbox_decode(NeonACC::CDataBlob<float> &bbox_pred, const NeonACC::CDataBlob<float> &priors, int stride) {
+void BASE::bbox_decode(BASE::CDataBlob<float> &bbox_pred, const BASE::CDataBlob<float> &priors, int stride) {
     if (bbox_pred.cols != priors.cols || bbox_pred.rows != priors.rows) {
         std::cerr << __FUNCTION__ << ": Mismatch between feature map and anchor size. (" \
  << (bbox_pred.rows) << ", " << (bbox_pred.cols) << ") vs (" \
@@ -460,7 +456,7 @@ void NeonACC::bbox_decode(NeonACC::CDataBlob<float> &bbox_pred, const NeonACC::C
     }
 }
 
-void NeonACC::kps_decode(NeonACC::CDataBlob<float> &kps_pred, const NeonACC::CDataBlob<float> &priors, int stride) {
+void BASE::kps_decode(BASE::CDataBlob<float> &kps_pred, const BASE::CDataBlob<float> &priors, int stride) {
     if (kps_pred.cols != priors.cols || kps_pred.rows != priors.rows) {
         std::cerr << __FUNCTION__ << ": Mismatch between feature map and anchor size." << std::endl;
         exit(1);
@@ -485,8 +481,7 @@ void NeonACC::kps_decode(NeonACC::CDataBlob<float> &kps_pred, const NeonACC::CDa
 }
 
 template<typename T>
-NeonACC::CDataBlob<T> NeonACC::concat3(const NeonACC::CDataBlob<T> &inputData1, const NeonACC::CDataBlob<T> &inputData2,
-                                       const NeonACC::CDataBlob<T> &inputData3) {
+BASE::CDataBlob<T> BASE::concat3(const BASE::CDataBlob<T> &inputData1, const BASE::CDataBlob<T> &inputData2, const BASE::CDataBlob<T> &inputData3) {
     if ((inputData1.isEmpty()) || (inputData2.isEmpty()) || (inputData3.isEmpty())) {
         std::cerr << __FUNCTION__ << ": The input data is empty." << std::endl;
         exit(1);
@@ -509,7 +504,7 @@ NeonACC::CDataBlob<T> NeonACC::concat3(const NeonACC::CDataBlob<T> &inputData1, 
         exit(1);
     }
 
-    NeonACC::CDataBlob<T> outputData(outputR, outputC, outputCH);
+    BASE::CDataBlob<T> outputData(outputR, outputC, outputCH);
 
     for (int row = 0; row < outputData.rows; row++) {
         for (int col = 0; col < outputData.cols; col++) {
@@ -526,18 +521,17 @@ NeonACC::CDataBlob<T> NeonACC::concat3(const NeonACC::CDataBlob<T> &inputData1, 
     return outputData;
 }
 
-template NeonACC::CDataBlob<float>
-NeonACC::concat3(const NeonACC::CDataBlob<float> &inputData1, const NeonACC::CDataBlob<float> &inputData2,
-                 const NeonACC::CDataBlob<float> &inputData3);
+template BASE::CDataBlob<float>
+BASE::concat3(const BASE::CDataBlob<float> &inputData1, const BASE::CDataBlob<float> &inputData2, const BASE::CDataBlob<float> &inputData3);
 
 template<typename T>
-NeonACC::CDataBlob<T> NeonACC::blob2vector(const NeonACC::CDataBlob<T> &inputData) {
+BASE::CDataBlob<T> BASE::blob2vector(const BASE::CDataBlob<T> &inputData) {
     if (inputData.isEmpty()) {
         std::cerr << __FUNCTION__ << ": The input data is empty." << std::endl;
         exit(1);
     }
 
-    NeonACC::CDataBlob<T> outputData(1, 1, inputData.cols * inputData.rows * inputData.channels);
+    BASE::CDataBlob<T> outputData(1, 1, inputData.cols * inputData.rows * inputData.channels);
 
     int bytesOfAChannel = inputData.channels * sizeof(T);
     T *pOut = outputData.ptr(0, 0);
@@ -552,9 +546,9 @@ NeonACC::CDataBlob<T> NeonACC::blob2vector(const NeonACC::CDataBlob<T> &inputDat
     return outputData;
 }
 
-template NeonACC::CDataBlob<float> NeonACC::blob2vector(const NeonACC::CDataBlob<float> &inputData);
+template BASE::CDataBlob<float> BASE::blob2vector(const BASE::CDataBlob<float> &inputData);
 
-void NeonACC::sigmoid(NeonACC::CDataBlob<float> &inputData) {
+void BASE::sigmoid(BASE::CDataBlob<float> &inputData) {
     for (int r = 0; r < inputData.rows; ++r) {
         for (int c = 0; c < inputData.cols; ++c) {
             float *pIn = inputData.ptr(r, c);
@@ -568,14 +562,14 @@ void NeonACC::sigmoid(NeonACC::CDataBlob<float> &inputData) {
     }
 }
 
-std::vector<NeonACC::FaceRect> NeonACC::detection_output(const NeonACC::CDataBlob<float> &cls,
-                                                         const NeonACC::CDataBlob<float> &reg,
-                                                         const NeonACC::CDataBlob<float> &kps,
-                                                         const NeonACC::CDataBlob<float> &obj,
-                                                         float overlap_threshold,
-                                                         float confidence_threshold,
-                                                         int top_k,
-                                                         int keep_top_k) {
+std::vector<BASE::FaceRect> BASE::detection_output(const BASE::CDataBlob<float> &cls,
+                                       const BASE::CDataBlob<float> &reg,
+                                       const BASE::CDataBlob<float> &kps,
+                                       const BASE::CDataBlob<float> &obj,
+                                       float overlap_threshold,
+                                       float confidence_threshold,
+                                       int top_k,
+                                       int keep_top_k) {
     if (reg.isEmpty() || cls.isEmpty() || kps.isEmpty() || obj.isEmpty())//|| iou.isEmpty())
     {
         std::cerr << __FUNCTION__ << ": The input data is null." << std::endl;
@@ -652,11 +646,11 @@ std::vector<NeonACC::FaceRect> NeonACC::detection_output(const NeonACC::CDataBlo
     //copy the results to the output blob
     int num_faces = (int) final_score_bbox_vec.size();
 
-    std::vector<NeonACC::FaceRect> facesInfo;
+    std::vector<BASE::FaceRect> facesInfo;
     for (int fi = 0; fi < num_faces; fi++) {
         std::pair<float, NormalizedBBox> pp = final_score_bbox_vec[fi];
 
-        NeonACC::FaceRect r;
+        BASE::FaceRect r;
         r.score = pp.first;
         r.x = int(pp.second.xmin);
         r.y = int(pp.second.ymin);

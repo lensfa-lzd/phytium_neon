@@ -59,17 +59,8 @@ DO NOT EDIT the following code if you don't really understand it.
 #include <iostream>
 #include <typeinfo>
 
-namespace NeonACC {
 //#define _MAX_UINT8_VALUE 127
 #define _MALLOC_ALIGN 128
-
-    int *facedetect_cnn(
-            unsigned char *result_buffer, //buffer memory for storing face detection results, !!its size must be 0x20000 Bytes!!
-            unsigned char *rgb_image_data, int width, int height, int step);
-
-    void *myAlloc(size_t size);
-
-    void myFree_(void *ptr);
 
 #define myFree(ptr) (myFree_(*(ptr)), *(ptr)=0);
 
@@ -80,6 +71,15 @@ namespace NeonACC {
 #ifndef MAX
 #  define MAX(a, b)  ((a) < (b) ? (b) : (a))
 #endif
+
+namespace BASE {
+    int *facedetect_cnn(
+            unsigned char *result_buffer, //buffer memory for storing face detection results, !!its size must be 0x20000 Bytes!!
+            unsigned char *rgb_image_data, int width, int height, int step);
+
+    void *myAlloc(size_t size);
+
+    void myFree_(void *ptr);
 
     typedef struct FaceRect_ {
         float score;
@@ -313,7 +313,7 @@ namespace NeonACC {
             with_relu = true;
         }
 
-        Filters &operator=(ConvInfoStruct &convinfo) {
+        Filters &operator=(BASE::ConvInfoStruct &convinfo) {
             if (typeid(float) != typeid(T)) {
                 std::cerr << "The data type must be float in this version." << std::endl;
                 return *this;

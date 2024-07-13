@@ -37,7 +37,7 @@ the use of this software, even if advised of the possibility of such damage.
 */
 
 
-#include "facedetectcnn_neon.h"
+#include "facedetectcnn.h"
 
 
 #if 0
@@ -53,30 +53,30 @@ cv::TickMeter cvtm;
 
 #define NUM_CONV_LAYER 53
 
-namespace NeonACC {
-    extern NeonACC::ConvInfoStruct param_pConvInfo[NUM_CONV_LAYER];
-    NeonACC::Filters<float> g_pFilters[NUM_CONV_LAYER];
+namespace BASE {
+    extern BASE::ConvInfoStruct param_pConvInfo[NUM_CONV_LAYER];
+    BASE::Filters<float> g_pFilters[NUM_CONV_LAYER];
+
     bool param_initialized = false;
 
     void init_parameters() {
         for (int i = 0; i < NUM_CONV_LAYER; i++)
-            NeonACC::g_pFilters[i] = NeonACC::param_pConvInfo[i];
+            BASE::g_pFilters[i] = BASE::param_pConvInfo[i];
     }
 }
 
-
-std::vector<NeonACC::FaceRect> NeonACC::objectdetect_cnn(unsigned char *rgbImageData, int width, int height, int step) {
+std::vector<BASE::FaceRect> BASE::objectdetect_cnn(unsigned char *rgbImageData, int width, int height, int step) {
 
     TIME_START;
-    if (!NeonACC::param_initialized) {
-        NeonACC::init_parameters();
-        NeonACC::param_initialized = true;
+    if (!BASE::param_initialized) {
+        BASE::init_parameters();
+        BASE::param_initialized = true;
     }
     TIME_END("init");
 
 
     TIME_START;
-    auto fx = NeonACC::setDataFrom3x3S2P1to1x1S1P0FromImage(rgbImageData, width, height, 3, step);
+    auto fx = BASE::setDataFrom3x3S2P1to1x1S1P0FromImage(rgbImageData, width, height, 3, step);
     TIME_END("convert data");
 
     /***************CONV0*********************/
@@ -129,7 +129,7 @@ std::vector<NeonACC::FaceRect> NeonACC::objectdetect_cnn(unsigned char *rgbImage
     auto fb3 = convolution4layerUnit(fx, g_pFilters[19], g_pFilters[20], g_pFilters[21], g_pFilters[22]);
     TIME_END("conv5");
 
-    NeonACC::CDataBlob<float> pred_reg[3], pred_cls[3], pred_kps[3], pred_obj[3];
+    BASE::CDataBlob<float> pred_reg[3], pred_cls[3], pred_kps[3], pred_obj[3];
     /***************branch5*********************/
     TIME_START;
     fb3 = convolutionDP(fb3, g_pFilters[27], g_pFilters[28]);
@@ -169,9 +169,9 @@ std::vector<NeonACC::FaceRect> NeonACC::objectdetect_cnn(unsigned char *rgbImage
 
     /***************PRIORBOX*********************/
     TIME_START;
-    auto prior3 = NeonACC::meshgrid(fb1.cols, fb1.rows, 8);
-    auto prior4 = NeonACC::meshgrid(fb2.cols, fb2.rows, 16);
-    auto prior5 = NeonACC::meshgrid(fb3.cols, fb3.rows, 32);
+    auto prior3 = BASE::meshgrid(fb1.cols, fb1.rows, 8);
+    auto prior4 = BASE::meshgrid(fb2.cols, fb2.rows, 16);
+    auto prior5 = BASE::meshgrid(fb3.cols, fb3.rows, 32);
     TIME_END("prior");
     /***************PRIORBOX*********************/
 
@@ -194,12 +194,12 @@ std::vector<NeonACC::FaceRect> NeonACC::objectdetect_cnn(unsigned char *rgbImage
     TIME_END("decode")
 
     TIME_START;
-    std::vector<NeonACC::FaceRect> facesInfo = detection_output(cls, reg, kps, obj, 0.45f, 0.2f, 1000, 512);
+    std::vector<BASE::FaceRect> facesInfo = detection_output(cls, reg, kps, obj, 0.45f, 0.2f, 1000, 512);
     TIME_END("detection output")
     return facesInfo;
 }
 
-int *NeonACC::facedetect_cnn(
+int *BASE::facedetect_cnn(
         unsigned char *result_buffer, //buffer memory for storing face detection results, !!its size must be 0x9000 Bytes!!
         unsigned char *rgb_image_data, int width, int height,
         int step) //input image, it must be BGR (three-channel) image!
@@ -215,7 +215,7 @@ int *NeonACC::facedetect_cnn(
     result_buffer[2] = 0;
     result_buffer[3] = 0;
 
-    std::vector<NeonACC::FaceRect> faces = objectdetect_cnn(rgb_image_data, width, height, step);
+    std::vector<BASE::FaceRect> faces = objectdetect_cnn(rgb_image_data, width, height, step);
 
     int num_faces = (int) faces.size();
     num_faces = MIN(num_faces, 1024); //1024 = 0x9000 / (16 * 2 + 4)
