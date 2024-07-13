@@ -78,7 +78,7 @@ void BASE::myFree_(void *ptr) {
 
 BASE::CDataBlob<float>
 BASE::setDataFrom3x3S2P1to1x1S1P0FromImage(const unsigned char *inputData, int imgWidth, int imgHeight, int imgChannels,
-                                     int imgWidthStep, int padDivisor) {
+                                           int imgWidthStep, int padDivisor) {
     if (imgChannels != 3) {
         std::cerr << __FUNCTION__ << ": The input image must be a 3-channel RGB image." << std::endl;
         exit(1);
@@ -120,162 +120,135 @@ BASE::setDataFrom3x3S2P1to1x1S1P0FromImage(const unsigned char *inputData, int i
     return outBlob;
 }
 
-//p1 and p2 must be 512-bit aligned (16 float numbers)
-inline float dotProduct(const float *p1, const float *p2, int num) {
-    float sum = 0.f;
-    // NEON ACC
-    float32x4_t a_float_x4, b_float_x4;
-    float32x4_t sum_float_x4;
-    sum_float_x4 = vdupq_n_f32(0);
-    for (int i = 0; i < num; i += 4) {
-        a_float_x4 = vld1q_f32(p1 + i);
-        b_float_x4 = vld1q_f32(p2 + i);
-        sum_float_x4 = vaddq_f32(sum_float_x4, vmulq_f32(a_float_x4, b_float_x4));
+namespace BASE {
+    inline float dotProduct(const float *p1, const float *p2, int num) {
+        float sum = 0.f;
+        for (int i = 0; i < num; i++) {
+            sum += (p1[i] * p2[i]);
+        }
+        return sum;
     }
-    sum += vgetq_lane_f32(sum_float_x4, 0);
-    sum += vgetq_lane_f32(sum_float_x4, 1);
-    sum += vgetq_lane_f32(sum_float_x4, 2);
-    sum += vgetq_lane_f32(sum_float_x4, 3);
-    return sum;
-}
 
-inline bool vecMulAdd(const float *p1, const float *p2, float *p3, int num) {
-    // NEON ACC
-    float32x4_t a_float_x4, b_float_x4, c_float_x4;
-    for (int i = 0; i < num; i += 4) {
-        a_float_x4 = vld1q_f32(p1 + i);
-        b_float_x4 = vld1q_f32(p2 + i);
-        c_float_x4 = vld1q_f32(p3 + i);
-        c_float_x4 = vaddq_f32(c_float_x4, vmulq_f32(a_float_x4, b_float_x4));
-        vst1q_f32(p3 + i, c_float_x4);
+    inline bool vecMulAdd(const float *p1, const float *p2, float *p3, int num) {
+        for (int i = 0; i < num; i++)
+            p3[i] += (p1[i] * p2[i]);
+        return true;
     }
-    return true;
-}
 
-inline bool vecAdd(const float *p1, float *p2, int num) {
-    // NEON ACC
-    float32x4_t a_float_x4, b_float_x4, c_float_x4;
-    for (int i = 0; i < num; i += 4) {
-        a_float_x4 = vld1q_f32(p1 + i);
-        b_float_x4 = vld1q_f32(p2 + i);
-        c_float_x4 = vaddq_f32(a_float_x4, b_float_x4);
-        vst1q_f32(p2 + i, c_float_x4);
+    inline bool vecAdd(const float *p1, float *p2, int num) {
+        for (int i = 0; i < num; i++) {
+            p2[i] += p1[i];
+        }
+        return true;
     }
-    return true;
-}
 
-inline bool vecAdd(const float *p1, const float *p2, float *p3, int num) {
-    // NEON ACC
-    float32x4_t a_float_x4, b_float_x4, c_float_x4;
-    for (int i = 0; i < num; i+=4)
-    {
-        a_float_x4 = vld1q_f32(p1 + i);
-        b_float_x4 = vld1q_f32(p2 + i);
-        c_float_x4 = vaddq_f32(a_float_x4, b_float_x4);
-        vst1q_f32(p3 + i, c_float_x4);
+    inline bool vecAdd(const float *p1, const float *p2, float *p3, int num) {
+        for (int i = 0; i < num; i++) {
+            p3[i] = p1[i] + p2[i];
+        }
+        return true;
     }
-    return true;
-}
 
-bool convolution_1x1pointwise(const BASE::CDataBlob<float> &inputData, const BASE::Filters<float> &filters,
-                              BASE::CDataBlob<float> &outputData) {
-    for (int row = 0; row < outputData.rows; row++) {
-        for (int col = 0; col < outputData.cols; col++) {
-            float *pOut = outputData.ptr(row, col);
-            const float *pIn = inputData.ptr(row, col);
-            for (int ch = 0; ch < outputData.channels; ch++) {
-                const float *pF = filters.weights.ptr(0, ch);
-                pOut[ch] = dotProduct(pIn, pF, inputData.channels);
-                pOut[ch] += filters.biases.data[ch];
+    bool convolution_1x1pointwise(const BASE::CDataBlob<float> &inputData, const BASE::Filters<float> &filters,
+                                  BASE::CDataBlob<float> &outputData) {
+        for (int row = 0; row < outputData.rows; row++) {
+            for (int col = 0; col < outputData.cols; col++) {
+                float *pOut = outputData.ptr(row, col);
+                const float *pIn = inputData.ptr(row, col);
+                for (int ch = 0; ch < outputData.channels; ch++) {
+                    const float *pF = filters.weights.ptr(0, ch);
+                    pOut[ch] = dotProduct(pIn, pF, inputData.channels);
+                    pOut[ch] += filters.biases.data[ch];
+                }
             }
         }
+        return true;
     }
-    return true;
-}
 
-bool convolution_3x3depthwise(const BASE::CDataBlob<float> &inputData, const BASE::Filters<float> &filters,
-                              BASE::CDataBlob<float> &outputData) {
-    //set all elements in outputData to zeros
-    outputData.setZero();
-    for (int row = 0; row < outputData.rows; row++) {
-        int srcy_start = row - 1;
-        int srcy_end = srcy_start + 3;
-        srcy_start = MAX(0, srcy_start);
-        srcy_end = MIN(srcy_end, inputData.rows);
+    bool convolution_3x3depthwise(const BASE::CDataBlob<float> &inputData, const BASE::Filters<float> &filters,
+                                  BASE::CDataBlob<float> &outputData) {
+        //set all elements in outputData to zeros
+        outputData.setZero();
+        for (int row = 0; row < outputData.rows; row++) {
+            int srcy_start = row - 1;
+            int srcy_end = srcy_start + 3;
+            srcy_start = MAX(0, srcy_start);
+            srcy_end = MIN(srcy_end, inputData.rows);
 
-        for (int col = 0; col < outputData.cols; col++) {
-            float *pOut = outputData.ptr(row, col);
-            int srcx_start = col - 1;
-            int srcx_end = srcx_start + 3;
-            srcx_start = MAX(0, srcx_start);
-            srcx_end = MIN(srcx_end, inputData.cols);
+            for (int col = 0; col < outputData.cols; col++) {
+                float *pOut = outputData.ptr(row, col);
+                int srcx_start = col - 1;
+                int srcx_end = srcx_start + 3;
+                srcx_start = MAX(0, srcx_start);
+                srcx_end = MIN(srcx_end, inputData.cols);
 
 
-            for (int r = srcy_start; r < srcy_end; r++)
-                for (int c = srcx_start; c < srcx_end; c++) {
-                    int filter_r = r - row + 1;
-                    int filter_c = c - col + 1;
-                    int filter_idx = filter_r * 3 + filter_c;
-                    vecMulAdd(inputData.ptr(r, c), filters.weights.ptr(0, filter_idx), pOut, filters.num_filters);
-                }
-            vecAdd(filters.biases.ptr(0, 0), pOut, filters.num_filters);
+                for (int r = srcy_start; r < srcy_end; r++)
+                    for (int c = srcx_start; c < srcx_end; c++) {
+                        int filter_r = r - row + 1;
+                        int filter_c = c - col + 1;
+                        int filter_idx = filter_r * 3 + filter_c;
+                        vecMulAdd(inputData.ptr(r, c), filters.weights.ptr(0, filter_idx), pOut, filters.num_filters);
+                    }
+                vecAdd(filters.biases.ptr(0, 0), pOut, filters.num_filters);
+            }
+        }
+        return true;
+    }
+
+    bool relu(BASE::CDataBlob<float> &inputoutputData) {
+        if (inputoutputData.isEmpty()) {
+            std::cerr << __FUNCTION__ << ": The input data is empty." << std::endl;
+            return false;
+        }
+
+        int len = inputoutputData.cols * inputoutputData.rows * inputoutputData.channelStep / sizeof(float);
+        for (int i = 0; i < len; i++)
+            inputoutputData.data[i] *= (inputoutputData.data[i] > 0);
+
+        return true;
+    }
+
+    void IntersectBBox(const NormalizedBBox &bbox1, const NormalizedBBox &bbox2,
+                       NormalizedBBox *intersect_bbox) {
+        if (bbox2.xmin > bbox1.xmax || bbox2.xmax < bbox1.xmin ||
+            bbox2.ymin > bbox1.ymax || bbox2.ymax < bbox1.ymin) {
+            // Return [0, 0, 0, 0] if there is no intersection.
+            intersect_bbox->xmin = 0;
+            intersect_bbox->ymin = 0;
+            intersect_bbox->xmax = 0;
+            intersect_bbox->ymax = 0;
+        } else {
+            intersect_bbox->xmin = (std::max(bbox1.xmin, bbox2.xmin));
+            intersect_bbox->ymin = (std::max(bbox1.ymin, bbox2.ymin));
+            intersect_bbox->xmax = (std::min(bbox1.xmax, bbox2.xmax));
+            intersect_bbox->ymax = (std::min(bbox1.ymax, bbox2.ymax));
         }
     }
-    return true;
-}
 
-bool relu(BASE::CDataBlob<float> &inputoutputData) {
-    if (inputoutputData.isEmpty()) {
-        std::cerr << __FUNCTION__ << ": The input data is empty." << std::endl;
-        return false;
+    float JaccardOverlap(const NormalizedBBox &bbox1, const NormalizedBBox &bbox2) {
+        NormalizedBBox intersect_bbox;
+        IntersectBBox(bbox1, bbox2, &intersect_bbox);
+        float intersect_width, intersect_height;
+        intersect_width = intersect_bbox.xmax - intersect_bbox.xmin;
+        intersect_height = intersect_bbox.ymax - intersect_bbox.ymin;
+
+        if (intersect_width > 0 && intersect_height > 0) {
+            float intersect_size = intersect_width * intersect_height;
+            float bsize1 = (bbox1.xmax - bbox1.xmin) * (bbox1.ymax - bbox1.ymin);
+            float bsize2 = (bbox2.xmax - bbox2.xmin) * (bbox2.ymax - bbox2.ymin);
+            return intersect_size / (bsize1 + bsize2 - intersect_size);
+        } else {
+            return 0.f;
+        }
     }
 
-    int len = inputoutputData.cols * inputoutputData.rows * inputoutputData.channelStep / sizeof(float);
-    for (int i = 0; i < len; i++)
-        inputoutputData.data[i] *= (inputoutputData.data[i] > 0);
-
-    return true;
-}
-
-void IntersectBBox(const NormalizedBBox &bbox1, const NormalizedBBox &bbox2,
-                   NormalizedBBox *intersect_bbox) {
-    if (bbox2.xmin > bbox1.xmax || bbox2.xmax < bbox1.xmin ||
-        bbox2.ymin > bbox1.ymax || bbox2.ymax < bbox1.ymin) {
-        // Return [0, 0, 0, 0] if there is no intersection.
-        intersect_bbox->xmin = 0;
-        intersect_bbox->ymin = 0;
-        intersect_bbox->xmax = 0;
-        intersect_bbox->ymax = 0;
-    } else {
-        intersect_bbox->xmin = (std::max(bbox1.xmin, bbox2.xmin));
-        intersect_bbox->ymin = (std::max(bbox1.ymin, bbox2.ymin));
-        intersect_bbox->xmax = (std::min(bbox1.xmax, bbox2.xmax));
-        intersect_bbox->ymax = (std::min(bbox1.ymax, bbox2.ymax));
+    bool SortScoreBBoxPairDescend(const std::pair<float, NormalizedBBox> &pair1,
+                                  const std::pair<float, NormalizedBBox> &pair2) {
+        return pair1.first > pair2.first;
     }
+
 }
-
-float JaccardOverlap(const NormalizedBBox &bbox1, const NormalizedBBox &bbox2) {
-    NormalizedBBox intersect_bbox;
-    IntersectBBox(bbox1, bbox2, &intersect_bbox);
-    float intersect_width, intersect_height;
-    intersect_width = intersect_bbox.xmax - intersect_bbox.xmin;
-    intersect_height = intersect_bbox.ymax - intersect_bbox.ymin;
-
-    if (intersect_width > 0 && intersect_height > 0) {
-        float intersect_size = intersect_width * intersect_height;
-        float bsize1 = (bbox1.xmax - bbox1.xmin) * (bbox1.ymax - bbox1.ymin);
-        float bsize2 = (bbox2.xmax - bbox2.xmin) * (bbox2.ymax - bbox2.ymin);
-        return intersect_size / (bsize1 + bsize2 - intersect_size);
-    } else {
-        return 0.f;
-    }
-}
-
-bool
-SortScoreBBoxPairDescend(const std::pair<float, NormalizedBBox> &pair1, const std::pair<float, NormalizedBBox> &pair2) {
-    return pair1.first > pair2.first;
-}
-
 
 BASE::CDataBlob<float> BASE::upsampleX2(const BASE::CDataBlob<float> &inputData) {
     if (inputData.isEmpty()) {
@@ -301,7 +274,8 @@ BASE::CDataBlob<float> BASE::upsampleX2(const BASE::CDataBlob<float> &inputData)
     return outData;
 }
 
-BASE::CDataBlob<float> BASE::elementAdd(const BASE::CDataBlob<float> &inputData1, const BASE::CDataBlob<float> &inputData2) {
+BASE::CDataBlob<float>
+BASE::elementAdd(const BASE::CDataBlob<float> &inputData1, const BASE::CDataBlob<float> &inputData2) {
     if (inputData1.rows != inputData2.rows || inputData1.cols != inputData2.cols ||
         inputData1.channels != inputData2.channels) {
         std::cerr << __FUNCTION__ << ": The two input datas must be in the same shape." << std::endl;
@@ -319,7 +293,8 @@ BASE::CDataBlob<float> BASE::elementAdd(const BASE::CDataBlob<float> &inputData1
     return outData;
 }
 
-BASE::CDataBlob<float> BASE::convolution(const BASE::CDataBlob<float> &inputData, const BASE::Filters<float> &filters, bool do_relu) {
+BASE::CDataBlob<float>
+BASE::convolution(const BASE::CDataBlob<float> &inputData, const BASE::Filters<float> &filters, bool do_relu) {
     if (inputData.isEmpty() || filters.weights.isEmpty() || filters.biases.isEmpty()) {
         std::cerr << __FUNCTION__ << ": The input data or filter data is empty" << std::endl;
         exit(1);
@@ -346,15 +321,18 @@ BASE::CDataBlob<float> BASE::convolution(const BASE::CDataBlob<float> &inputData
 }
 
 BASE::CDataBlob<float> BASE::convolutionDP(const BASE::CDataBlob<float> &inputData,
-                               const BASE::Filters<float> &filtersP, const BASE::Filters<float> &filtersD, bool do_relu) {
+                                           const BASE::Filters<float> &filtersP, const BASE::Filters<float> &filtersD,
+                                           bool do_relu) {
     BASE::CDataBlob<float> tmp = BASE::convolution(inputData, filtersP, false);
     BASE::CDataBlob<float> out = BASE::convolution(tmp, filtersD, do_relu);
     return out;
 }
 
 BASE::CDataBlob<float> BASE::convolution4layerUnit(const BASE::CDataBlob<float> &inputData,
-                                       const BASE::Filters<float> &filtersP1, const BASE::Filters<float> &filtersD1,
-                                       const BASE::Filters<float> &filtersP2, const BASE::Filters<float> &filtersD2, bool do_relu) {
+                                                   const BASE::Filters<float> &filtersP1,
+                                                   const BASE::Filters<float> &filtersD1,
+                                                   const BASE::Filters<float> &filtersP2,
+                                                   const BASE::Filters<float> &filtersD2, bool do_relu) {
     BASE::CDataBlob<float> tmp = BASE::convolutionDP(inputData, filtersP1, filtersD1, true);
     BASE::CDataBlob<float> out = BASE::convolutionDP(tmp, filtersP2, filtersD2, do_relu);
     return out;
@@ -400,17 +378,12 @@ BASE::CDataBlob<float> BASE::maxpooling2x2S2(const BASE::CDataBlob<float> &input
             float *pOut = outputData.ptr(row, col);
             float *pIn = inputData.data;
 
-            for (int ch = 0; ch < outputData.channels; ch += 4)
-            {
-                // NEON ACC
-                float32x4_t tmp;
-                float32x4_t maxVal = vld1q_f32(pIn + ch + inputMatOffsetsInElement[0]);
-                for (int ec = 1; ec < elementCount; ec++)
-                {
-                    tmp = vld1q_f32(pIn + ch + inputMatOffsetsInElement[ec]);
-                    maxVal = vmaxq_f32(maxVal, tmp);
+            for (int ch = 0; ch < outputData.channels; ch++) {
+                float maxVal = pIn[ch + inputMatOffsetsInElement[0]];
+                for (int ec = 1; ec < elementCount; ec++) {
+                    maxVal = MAX(maxVal, pIn[ch + inputMatOffsetsInElement[ec]]);
                 }
-                vst1q_f32(pOut + ch, maxVal);
+                pOut[ch] = maxVal;
             }
         }
     }
@@ -481,7 +454,8 @@ void BASE::kps_decode(BASE::CDataBlob<float> &kps_pred, const BASE::CDataBlob<fl
 }
 
 template<typename T>
-BASE::CDataBlob<T> BASE::concat3(const BASE::CDataBlob<T> &inputData1, const BASE::CDataBlob<T> &inputData2, const BASE::CDataBlob<T> &inputData3) {
+BASE::CDataBlob<T> BASE::concat3(const BASE::CDataBlob<T> &inputData1, const BASE::CDataBlob<T> &inputData2,
+                                 const BASE::CDataBlob<T> &inputData3) {
     if ((inputData1.isEmpty()) || (inputData2.isEmpty()) || (inputData3.isEmpty())) {
         std::cerr << __FUNCTION__ << ": The input data is empty." << std::endl;
         exit(1);
@@ -522,7 +496,8 @@ BASE::CDataBlob<T> BASE::concat3(const BASE::CDataBlob<T> &inputData1, const BAS
 }
 
 template BASE::CDataBlob<float>
-BASE::concat3(const BASE::CDataBlob<float> &inputData1, const BASE::CDataBlob<float> &inputData2, const BASE::CDataBlob<float> &inputData3);
+BASE::concat3(const BASE::CDataBlob<float> &inputData1, const BASE::CDataBlob<float> &inputData2,
+              const BASE::CDataBlob<float> &inputData3);
 
 template<typename T>
 BASE::CDataBlob<T> BASE::blob2vector(const BASE::CDataBlob<T> &inputData) {
@@ -563,13 +538,13 @@ void BASE::sigmoid(BASE::CDataBlob<float> &inputData) {
 }
 
 std::vector<BASE::FaceRect> BASE::detection_output(const BASE::CDataBlob<float> &cls,
-                                       const BASE::CDataBlob<float> &reg,
-                                       const BASE::CDataBlob<float> &kps,
-                                       const BASE::CDataBlob<float> &obj,
-                                       float overlap_threshold,
-                                       float confidence_threshold,
-                                       int top_k,
-                                       int keep_top_k) {
+                                                   const BASE::CDataBlob<float> &reg,
+                                                   const BASE::CDataBlob<float> &kps,
+                                                   const BASE::CDataBlob<float> &obj,
+                                                   float overlap_threshold,
+                                                   float confidence_threshold,
+                                                   int top_k,
+                                                   int keep_top_k) {
     if (reg.isEmpty() || cls.isEmpty() || kps.isEmpty() || obj.isEmpty())//|| iou.isEmpty())
     {
         std::cerr << __FUNCTION__ << ": The input data is null." << std::endl;
