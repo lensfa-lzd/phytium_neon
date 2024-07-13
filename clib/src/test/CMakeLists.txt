@@ -2,6 +2,7 @@
 add_executable(benchmark
         benchmark.cpp
         testFullPipeLine.cpp
+        testFullCNN.cpp
 )
 
 # 在构建目录输出文件

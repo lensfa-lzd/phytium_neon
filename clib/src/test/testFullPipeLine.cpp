@@ -34,9 +34,9 @@ double benchmarkFullPipeLine(Mat image, int total_count,
         pBuffers[i] = p + (DETECT_BUFFER_SIZE) * i;
     }
 
-
-//    pResults = benchFunction(pBuffers[0], image.ptr<unsigned char>(0), (int) image.cols, (int) image.rows,
-//                             (int) image.step);
+    // 确保数据加载到内存
+    pResults = benchFunction(pBuffers[0], image.ptr<unsigned char>(0), (int) image.cols, (int) image.rows,
+                             (int) image.step);
 
     TickMeter tm;
     tm.start();

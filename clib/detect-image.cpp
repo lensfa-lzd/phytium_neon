@@ -47,9 +47,16 @@ using namespace cv;
 using namespace std;
 
 int main(int argc, char *argv[]) {
-    if (argc != 3) {
+    if (argc == 1 || argc > 3) {
+        printf("Usage: %s <detect_image_file_path>\n", argv[0]);
         printf("Usage: %s <detect_image_file_path> <save_image_file_path>\n", argv[0]);
         return -1;
+    }
+    bool saveImage;
+    if (argc == 2) {
+        saveImage = false;
+    } else {
+        saveImage = true;
     }
 
     //load an image and convert it to gray (single-channel)
@@ -84,16 +91,20 @@ int main(int argc, char *argv[]) {
     cvtm.stop();
     printf("time = %gms\n", cvtm.getTimeMilli());
 
-    printf("%d faces detected.\n", (pResults ? *pResults : 0));
+    int faces = (pResults ? *pResults : 0);
+    printf("%d faces detected.\n", faces);
     Mat result_image = image.clone();
     //print the detection results
-    for (int i = 0; i < (pResults ? *pResults : 0); i++) {
+    for (int i = 0; i < faces; i++) {
         short *p = ((short *) (pResults + 1)) + 16 * i;
         int confidence = p[0];
         int x = p[1];
         int y = p[2];
         int w = p[3];
         int h = p[4];
+
+//        int a = p[0];
+//        short b = p[0];
 
         //show the score of the face. Its range is [0-100]
         char sScore[256];
@@ -114,8 +125,10 @@ int main(int argc, char *argv[]) {
                p[5], p[6], p[7], p[8], p[9], p[10], p[11], p[12], p[13], p[14]);
 
     }
-    printf("save image to %s\n", argv[2]);
-    cv::imwrite(argv[2], result_image);
+    if (saveImage) {
+        printf("save image to %s\n", argv[2]);
+        cv::imwrite(argv[2], result_image);
+    }
 
     //release the buffer
     free(pBuffer);
