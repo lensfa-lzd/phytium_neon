@@ -2,7 +2,6 @@
 // Created by liang on 2024/7/13.
 //
 
-#include "iostream"
 #include <stdio.h>
 #include <stdlib.h>
 #include <opencv2/opencv.hpp>
@@ -16,7 +15,7 @@ using namespace std;
 #define DETECT_BUFFER_SIZE 0x20000
 
 
-void benchmarkFullPipeLine(Mat image, int total_count,
+double benchmarkFullPipeLine(Mat image, int total_count,
                int *benchFunction(unsigned char *result_buffer, unsigned char *rgb_image_data, int width, int height,
                                   int step)) {
     int num_thread = 1;
@@ -28,7 +27,7 @@ void benchmarkFullPipeLine(Mat image, int total_count,
     unsigned char *p = (unsigned char *) malloc(DETECT_BUFFER_SIZE * num_thread);
     if (!p) {
         fprintf(stderr, "Can not alloc buffer.\n");
-        return;
+        return -1;
     }
 
     for (int i = 0; i < num_thread; i++) {
@@ -36,8 +35,8 @@ void benchmarkFullPipeLine(Mat image, int total_count,
     }
 
 
-    pResults = benchFunction(pBuffers[0], image.ptr<unsigned char>(0), (int) image.cols, (int) image.rows,
-                             (int) image.step);
+//    pResults = benchFunction(pBuffers[0], image.ptr<unsigned char>(0), (int) image.cols, (int) image.rows,
+//                             (int) image.step);
 
     TickMeter tm;
     tm.start();
@@ -50,20 +49,22 @@ void benchmarkFullPipeLine(Mat image, int total_count,
     tm.stop();
     double t = tm.getTimeMilli();
     t /= total_count;
-    printf("cnn facedetection average time = %.2fms | %.2f FPS\n", t, 1000.0 / t);
+    printf("Average time = %.2fms | %.2f FPS\n", t, 1000.0 / t);
 
     //release the buffer
     free(p);
+
+    return t;
 }
 
 void testFullPipeLine(Mat image, int total_count) {
-    int num_thread = 1;
-    printf("Using %d thread.\n", num_thread);
-
-    printf("Benchmarking...\n");
-    printf("facedetect_cnn\n");
-    benchmarkFullPipeLine(image, total_count, BASE::facedetect_cnn);
-    printf("----\n");
-    printf("facedetect_cnn_neon\n");
-    benchmarkFullPipeLine(image, total_count, NeonACC::facedetect_cnn);
+    printf("\n\n");
+    printf("开始---------------全流程测试---------------开始\n");
+    printf("基准       ");
+    double t1 = benchmarkFullPipeLine(image, total_count, BASE::facedetect_cnn);
+    printf("Neon加速   ");
+    double t2 = benchmarkFullPipeLine(image, total_count, NeonACC::facedetect_cnn);
+    printf("优化效率:   %.2f%%\n", 100 * (t1-t2) / t1);
+    printf("结束---------------全流程测试---------------结束\n");
+    printf("\n\n");
 }

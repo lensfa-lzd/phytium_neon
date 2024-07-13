@@ -21,8 +21,8 @@ int main(int argc, char *argv[]) {
     } else {
         total_count = stoi(argv[2]);
     }
-    printf("Using image %s\n", argv[1]);
-    printf("Repeat %d times.\n", total_count);
+    printf("测试图片 %s\n", argv[1]);
+    printf("重复测试次数(结果取平均值) %d\n", total_count);
 
     //load an image and convert it to gray (single-channel)
     Mat image = imread(argv[1]);
