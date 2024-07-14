@@ -1,10 +1,10 @@
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageDraw
 
 from clib.interface import FaseDetectInterface
 
 
-def detect_faces(image_path):
+def main(image_path, save_path):
     # 读取图像
     image = Image.open(image_path).convert("RGB")
 
@@ -15,9 +15,26 @@ def detect_faces(image_path):
     image_np[:, :, 0] = c
     image_np[:, :, 2] = a
 
-    tool = FaseDetectInterface("/home/admin/py_ft/clib/build/lib")
-    tool.detect_faces(image_np)
+    tool = FaseDetectInterface("/home/kylin/py_ft/clib/build/lib")
+    result = tool.detect_faces(image_np)
+
+    # 创建可绘制对象
+    draw = ImageDraw.Draw(image)
+
+    for item in result:
+        x1 = item['x']
+        y1 = item['y']
+        x2 = item['x'] + item['w']
+        y2 = item['y'] + item['h']
+
+        # 绘制方框
+        draw.rectangle((x1, y1, x2, y2), outline="blue", width=3)
+
+        # 绘制置信度
+        draw.text((x1 + 5, y1 + 5), f'{item["confidence"]}', fill="red")
+
+    image.save(save_path)
 
 
 # 示例用法
-detect_faces("/home/admin/p1.png")
+main("/home/kylin/p1.png", "/home/kylin/p1_detect_py.png")

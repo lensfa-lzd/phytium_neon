@@ -37,7 +37,7 @@ class FaseDetectInterface(object):
         self.neon_lib.facedetect_cnn.restype = POINTER(c_short)
 
         # 分配结果缓冲区
-        self.result_buffer = (c_ubyte * 0x800)()
+        self.result_buffer = ctypes.cast(ctypes.create_string_buffer(0x800), POINTER(c_ubyte))
 
     def detect_faces(self, image_array, method='base'):
         if method == 'base':
@@ -51,19 +51,27 @@ class FaseDetectInterface(object):
         step = image_array.strides[0]
 
         image_data = image_array.ctypes.data_as(POINTER(c_ubyte))
-        result_buffer = ctypes.cast(ctypes.create_string_buffer(0x800), POINTER(c_ubyte))
 
         # 调用 C++ 函数
         result_ptr = lib.facedetect_cnn(
-            result_buffer, image_data, width, height, step
+            self.result_buffer, image_data, width, height, step
         )
 
         # 获取结果数组长度
-        array_length = result_ptr[0]
-        print("得到结果数量: ", array_length)
-        if array_length > 0:
+        result = []
+        if result_ptr:
+            array_length = result_ptr[0]
+            # print("得到结果数量: ", array_length)
             # 遍历结果数组
             data_array: list = result_ptr[1: 16 * array_length]
             for i in range(array_length):
-                result = data_array[i * 16: (1 + i) * 15]
-                print(result)
+                result_array = data_array[i * 16: (1 + i) * 15]
+                result.append({
+                    'confidence': result_array[0],
+                    'x': result_array[1],
+                    'y': result_array[2],
+                    'w': result_array[3],
+                    'h': result_array[4],
+                })
+
+        return result
