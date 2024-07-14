@@ -3,7 +3,7 @@ add_executable(benchmark
         benchmark.cpp
         testFullPipeLine.cpp
         testDetectFunction.cpp
-        testFullCNN.cpp
+#        testFullCNN.cpp
 )
 
 # 在构建目录输出文件
@@ -13,7 +13,11 @@ set_target_properties(benchmark PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BIN
 find_package(OpenCV REQUIRED)
 include_directories(${OpenCV_INCLUDE_DIRS})
 
-target_link_libraries(benchmark base neon ${OpenCV_LIBS})
+target_link_libraries(benchmark
+        neon
+        base
+        ${OpenCV_LIBS}
+)
 
 
 # 设置include目录

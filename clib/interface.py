@@ -27,35 +27,35 @@ class FaseDetectInterface(object):
         ]
         self.base_lib.facedetect_cnn.restype = POINTER(c_short)
 
-        self.neon_lib.facedetect_cnn.argtypes = [
+        self.neon_lib.facedetect_cnn_neon.argtypes = [
             POINTER(c_ubyte),  # result_buffer
             POINTER(c_ubyte),  # rgb_image_data
             c_int,  # width
             c_int,  # height
             c_int  # step
         ]
-        self.neon_lib.facedetect_cnn.restype = POINTER(c_short)
+        self.neon_lib.facedetect_cnn_neon.restype = POINTER(c_short)
 
         # 分配结果缓冲区
         self.result_buffer = ctypes.cast(ctypes.create_string_buffer(0x800), POINTER(c_ubyte))
 
     def detect_faces(self, image_array, method='base'):
-        if method == 'base':
-            lib = self.base_lib
-        elif method == 'neon':
-            lib = self.neon_lib
-        else:
-            raise ValueError("Unsupported Method")
-
         width, height = image_array.shape[:2]
         step = image_array.strides[0]
 
         image_data = image_array.ctypes.data_as(POINTER(c_ubyte))
 
         # 调用 C++ 函数
-        result_ptr = lib.facedetect_cnn(
-            self.result_buffer, image_data, width, height, step
-        )
+        if method == 'base':
+            result_ptr = self.base_lib.facedetect_cnn(
+                self.result_buffer, image_data, width, height, step
+            )
+        elif method == 'neon':
+            result_ptr = self.neon_lib.facedetect_cnn_neon(
+                self.result_buffer, image_data, width, height, step
+            )
+        else:
+            raise ValueError("Unsupported Method")
 
         # 获取结果数组长度
         result = []

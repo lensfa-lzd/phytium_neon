@@ -57,7 +57,7 @@ void testFullPipeLine(Mat image, int total_count) {
     printf("基准       ");
     double t1 = benchmarkFullPipeLine(image, total_count, BASE::facedetect_cnn);
     printf("Neon加速   ");
-    double t2 = benchmarkFullPipeLine(image, total_count, NeonACC::facedetect_cnn);
+    double t2 = benchmarkFullPipeLine(image, total_count, NeonACC::facedetect_cnn_neon);
     printf("优化效率:   %.2f%%\n", 100 * (t1 - t2) / t1);
     printf("结束---------------全流程测试---------------结束\n");
     printf("\n");

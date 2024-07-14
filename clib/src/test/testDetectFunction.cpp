@@ -7,8 +7,6 @@
 #include "facedetectcnn.h"
 #include "facedetectcnn_neon.h"
 
-using namespace cv;
-using namespace std;
 
 
 double benchmarkDetectFunction(unsigned char *rgb_image_data, int width, int height, int step, int total_count, int function_type,
@@ -17,7 +15,7 @@ double benchmarkDetectFunction(unsigned char *rgb_image_data, int width, int hei
     // 确保数据加载到内存
     benchFunction(rgb_image_data, width, height, step, function_type);
 
-    TickMeter tm;
+    cv::TickMeter tm;
     tm.start();
 
     for (int i = 0; i < total_count; i++) {
@@ -30,7 +28,7 @@ double benchmarkDetectFunction(unsigned char *rgb_image_data, int width, int hei
     return t;
 }
 
-void functionContainer(unsigned char *rgb_image_data, int width, int height, int step, int function_type) {
+void functionContainerDetect(unsigned char *rgb_image_data, int width, int height, int step, int function_type) {
     if (function_type == 0) {
         BASE::objectdetect_cnn(rgb_image_data, width, height, step);
     } else {
@@ -42,9 +40,9 @@ void testDetectFunction(unsigned char *rgb_image_data, int width, int height, in
     printf("\n");
     printf("开始---------------检测函数测试---------------开始\n");
     printf("基准       ");
-    double t1 = benchmarkDetectFunction(rgb_image_data, width, height, step, total_count, 0, functionContainer);
+    double t1 = benchmarkDetectFunction(rgb_image_data, width, height, step, total_count, 0, functionContainerDetect);
     printf("Neon加速   ");
-    double t2 = benchmarkDetectFunction(rgb_image_data, width, height, step, total_count, 1, functionContainer);
+    double t2 = benchmarkDetectFunction(rgb_image_data, width, height, step, total_count, 1, functionContainerDetect);
     printf("优化效率:   %.2f%%\n", 100 * (t1 - t2) / t1);
     printf("结束---------------检测函数测试---------------结束\n");
     printf("\n");
