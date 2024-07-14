@@ -15,11 +15,15 @@ def main(image_path, save_path):
     image_np[:, :, 0] = c
     image_np[:, :, 2] = a
 
-    # 动态链接库路径
-    tool = FaseDetectInterface("/home/admin/py_ft/clib/build/lib")
+    # 检查数组在内存中是否连续存储
+    print(image_np.flags['C_CONTIGUOUS'])
 
-    result = tool.detect_faces(image_np, method='base')
-    # result = tool.detect_faces(image_np, method='neon')
+    # 动态链接库路径
+    # 项目的data文件夹存放了一个在arm中编译好的动态库,可以直接使用
+    tool = FaseDetectInterface("data")
+
+    # result = tool.detect_faces(image_np, method='base')
+    result = tool.detect_faces(image_np, method='neon')
 
     # 创建可绘制对象
     draw = ImageDraw.Draw(image)
@@ -39,5 +43,6 @@ def main(image_path, save_path):
     image.save(save_path)
 
 
-# 示例用法
-main("/home/admin/p1.png", "/home/admin/p1_detect_py.png")
+if __name__ == '__main__':
+    # 示例用法
+    main("/home/admin/p1.png", "/home/admin/p1_detect_py.png")

@@ -199,7 +199,7 @@ std::vector<NeonACC::FaceRect> NeonACC::objectdetect_cnn(unsigned char *rgbImage
     return facesInfo;
 }
 
-short *NeonACC::facedetect_cnn_neon(
+short *NeonACC::facedetect_cnn(
         unsigned char *result_buffer, //buffer memory for storing face detection results, !!its size must be 0x9000 Bytes!!
         unsigned char *rgb_image_data, int width, int height,
         int step) //input image, it must be BGR (three-channel) image!

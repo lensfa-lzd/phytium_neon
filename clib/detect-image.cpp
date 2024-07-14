@@ -66,6 +66,8 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
+    printf("Image size: (%d %d).\n", image.cols, image.rows);
+
     short *pResults = NULL;
     //pBuffer is used in the detection functions.
     //If you call functions in multiple threads, please create one buffer for each thread!
