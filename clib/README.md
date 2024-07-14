@@ -19,15 +19,16 @@ make
 
 ## 动态链接库
 
-编译后，共享库文件会存放在 ./lib 文件夹下
+编译后，打包好的共享库文件会存放在 ./lib 文件夹下
 
-- libbase.so   基准库
-- libneon.so  neon加速库
+- libfaceDetect.so
 
-两个库函数均提供如下的接口函数
+库函数提供如下的接口函数
 
 ```c++
-short *facedetect_cnn(unsigned char *result_buffer, unsigned char *rgb_image_data, int width, int height, int step);
+short *faceDetectBase(unsigned char *result_buffer, unsigned char *rgb_image_data, int width, int height, int step);
+
+short *faceDetectNeon(unsigned char *result_buffer, unsigned char *rgb_image_data, int width, int height, int step);
 
 // unsigned char *result_buffer
 // memory for storing face detection results, !!its size must be 0x800 Bytes!!

@@ -3,9 +3,10 @@
 //
 
 #pragma once
-
 #include <opencv2/opencv.hpp>
 
-void testFullPipeLine(cv::Mat image, int total_count);
+void testFullPipeLine(const cv::Mat &image, int total_count, std::ofstream& resultFile);
 
-void testDetectFunction(unsigned char *rgb_image_data, int width, int height, int step, int total_count);
+void testDetectFunction(int total_count, std::ofstream& resultFile);
+
+void testComponents(int total_count, std::ofstream& resultFile);

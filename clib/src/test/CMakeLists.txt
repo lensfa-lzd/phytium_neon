@@ -3,7 +3,7 @@ add_executable(benchmark
         benchmark.cpp
         testFullPipeLine.cpp
         testDetectFunction.cpp
-#        testFullCNN.cpp
+        testComponents.cpp
 )
 
 # 在构建目录输出文件

@@ -122,7 +122,7 @@ NeonACC::setDataFrom3x3S2P1to1x1S1P0FromImage(const unsigned char *inputData, in
 }
 
 namespace NeonACC {
-//p1 and p2 must be 512-bit aligned (16 float numbers)
+    //p1 and p2 must be 512-bit aligned (16 float numbers)
     inline float dotProduct(const float *p1, const float *p2, int num) {
         float sum = 0.f;
         // NEON ACC

@@ -7,6 +7,7 @@
 #include <opencv2/opencv.hpp>
 #include "facedetectcnn.h"
 #include "facedetectcnn_neon.h"
+#include <fstream>
 
 using namespace cv;
 using namespace std;
@@ -17,8 +18,8 @@ using namespace std;
 
 double benchmarkFullPipeLine(Mat image, int total_count,
                              short *(*benchFunction)(unsigned char *result_buffer, unsigned char *rgb_image_data,
-                                                  int width, int height,
-                                                  int step)) {
+                                                     int width, int height,
+                                                     int step)) {
 
     unsigned char *pBuffer = (unsigned char *) malloc(DETECT_BUFFER_SIZE);
 
@@ -38,7 +39,7 @@ double benchmarkFullPipeLine(Mat image, int total_count,
 
     for (int i = 0; i < total_count; i++) {
         benchFunction(pBuffer, image.ptr<unsigned char>(0), (int) image.cols, (int) image.rows,
-                                 (int) image.step);
+                      (int) image.step);
     }
     tm.stop();
     double t = tm.getTimeMilli();
@@ -51,14 +52,21 @@ double benchmarkFullPipeLine(Mat image, int total_count,
     return t;
 }
 
-void testFullPipeLine(Mat image, int total_count) {
+void testFullPipeLine(const Mat &image, int total_count, std::ofstream &resultFile) {
     printf("\n");
     printf("开始---------------全流程测试---------------开始\n");
+    printf("测试图像大小: (%d, %d)\n", image.cols, image.rows);
     printf("基准       ");
     double t1 = benchmarkFullPipeLine(image, total_count, BASE::facedetect_cnn);
     printf("Neon加速   ");
     double t2 = benchmarkFullPipeLine(image, total_count, NeonACC::facedetect_cnn);
-    printf("优化效率:   %.2f%%\n", 100 * (t1 - t2) / t1);
+
+    double efficiency = 100 * (t1 - t2) / t1;
+    printf("优化效率:   %.2f%%\n", efficiency);
     printf("结束---------------全流程测试---------------结束\n");
     printf("\n");
+
+    if (resultFile.is_open()) {
+        resultFile << "FullPipeLine: " << efficiency << std::endl;
+    }
 }
