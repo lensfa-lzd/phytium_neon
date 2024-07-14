@@ -30,6 +30,7 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "Can not load the image file %s.\n", argv[1]);
         return -1;
     }
+    testDetectFunction(image.ptr<unsigned char>(0), (int) image.cols, (int) image.rows, (int) image.step, total_count);
     testFullPipeLine(image, total_count);
 
     return 0;

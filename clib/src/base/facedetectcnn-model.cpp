@@ -213,13 +213,13 @@ short *BASE::facedetect_cnn(
     result_buffer[0] = 0;
     result_buffer[1] = 0;
 
-    std::vector<BASE::FaceRect> faces = objectdetect_cnn(rgb_image_data, width, height, step);
+    std::vector<BASE::FaceRect> faces = BASE::objectdetect_cnn(rgb_image_data, width, height, step);
 
-    short num_faces = (short) faces.size();
-    num_faces = MIN(num_faces, 1024); //1024 = 0x9000 / (16 * 2 + 4)
+    auto num_faces = faces.size();
+    num_faces = MIN(num_faces, 64);
 
-    short *pCount = (short *) result_buffer;
-    pCount[0] = num_faces;
+    auto *pCount = (short *) result_buffer;
+    pCount[0] = (short) num_faces;
 
     for (int i = 0; i < num_faces; i++) {
         //copy data

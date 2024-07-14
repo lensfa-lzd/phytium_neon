@@ -2,6 +2,7 @@
 add_executable(benchmark
         benchmark.cpp
         testFullPipeLine.cpp
+        testDetectFunction.cpp
         testFullCNN.cpp
 )
 
