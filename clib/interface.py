@@ -1,6 +1,8 @@
 import ctypes
 from ctypes import cdll, POINTER, c_int, c_short, c_ubyte
 
+import numpy as np
+
 
 class FaseDetectInterface(object):
     def __init__(self, lib_path: str):
@@ -39,7 +41,7 @@ class FaseDetectInterface(object):
         # 分配结果缓冲区
         self.result_buffer = ctypes.cast(ctypes.create_string_buffer(0x800), POINTER(c_ubyte))
 
-    def detect_faces(self, image_array, method='base'):
+    def detect_faces(self, image_array: np.ndarray, method='base') -> list:
         width, height = image_array.shape[:2]
         step = image_array.strides[0]
 

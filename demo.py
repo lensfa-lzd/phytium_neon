@@ -16,10 +16,10 @@ def main(image_path, save_path):
     image_np[:, :, 2] = a
 
     # 动态链接库路径
-    tool = FaseDetectInterface("/home/kylin/py_ft/clib/build/lib")
+    tool = FaseDetectInterface("/home/admin/py_ft/clib/build/lib")
 
-    result = tool.detect_faces(image_np, method='base')  # 普通版
-    # result = tool.detect_faces(image_np, method='neon')  # neon 加速
+    result = tool.detect_faces(image_np, method='base')
+    # result = tool.detect_faces(image_np, method='neon')
 
     # 创建可绘制对象
     draw = ImageDraw.Draw(image)
@@ -40,4 +40,4 @@ def main(image_path, save_path):
 
 
 # 示例用法
-main("/home/kylin/p1.png", "/home/kylin/p1_detect_py.png")
+main("/home/admin/p1.png", "/home/admin/p1_detect_py.png")
